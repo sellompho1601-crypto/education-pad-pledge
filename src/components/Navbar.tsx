@@ -1,8 +1,25 @@
 import { Button } from "@/components/ui/button";
-import { Heart } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Heart, LayoutDashboard } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { useUserRole } from "@/hooks/useUserRole";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Navbar = () => {
+  const { role, loading } = useUserRole();
+  const navigate = useNavigate();
+
+  const getDashboardLink = () => {
+    if (role === 'admin') return '/dashboard/admin';
+    if (role === 'institution') return '/dashboard/institution';
+    if (role === 'investor') return '/dashboard/investor';
+    return '/';
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
       <div className="container mx-auto px-4 py-4">
@@ -17,24 +34,37 @@ export const Navbar = () => {
           </Link>
           
           <div className="hidden md:flex items-center gap-6">
-            <Link to="/about" className="text-foreground hover:text-primary transition-colors">
-              About
-            </Link>
-            <Link to="/impact" className="text-foreground hover:text-primary transition-colors">
-              Impact
-            </Link>
-            <Link to="/contact" className="text-foreground hover:text-primary transition-colors">
-              Contact
-            </Link>
+            {role && (
+              <Link 
+                to={getDashboardLink()} 
+                className="text-foreground hover:text-primary transition-colors flex items-center gap-2"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                Dashboard
+              </Link>
+            )}
+            {role && (
+              <Link to="/messages" className="text-foreground hover:text-primary transition-colors">
+                Messages
+              </Link>
+            )}
           </div>
           
           <div className="flex items-center gap-3">
-            <Link to="/login">
-              <Button variant="ghost">Login</Button>
-            </Link>
-            <Link to="/#get-started">
-              <Button variant="hero">Get Started</Button>
-            </Link>
+            {!loading && !role ? (
+              <>
+                <Link to="/login">
+                  <Button variant="ghost">Login</Button>
+                </Link>
+                <Link to="/#get-started">
+                  <Button variant="hero">Get Started</Button>
+                </Link>
+              </>
+            ) : (
+              <Button variant="ghost" onClick={handleLogout}>
+                Logout
+              </Button>
+            )}
           </div>
         </div>
       </div>
