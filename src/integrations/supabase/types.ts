@@ -14,13 +14,215 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          institution_id: string
+          investor_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          institution_id: string
+          investor_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          institution_id?: string
+          investor_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "investors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      institutions: {
+        Row: {
+          address: string
+          certificate_url: string | null
+          city: string
+          contact_person: string
+          contact_position: string | null
+          country: string
+          created_at: string | null
+          id: string
+          institution_name: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          certificate_url?: string | null
+          city: string
+          contact_person: string
+          contact_position?: string | null
+          country: string
+          created_at?: string | null
+          id?: string
+          institution_name: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          certificate_url?: string | null
+          city?: string
+          contact_person?: string
+          contact_position?: string | null
+          country?: string
+          created_at?: string | null
+          id?: string
+          institution_name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "institutions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      investors: {
+        Row: {
+          certificate_url: string | null
+          company_name: string | null
+          created_at: string | null
+          id: string
+          investor_type: string
+          user_id: string
+        }
+        Insert: {
+          certificate_url?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          id?: string
+          investor_type: string
+          user_id: string
+        }
+        Update: {
+          certificate_url?: string | null
+          company_name?: string | null
+          created_at?: string | null
+          id?: string
+          investor_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investors_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
+          id: string
+          read: boolean | null
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          read?: boolean | null
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          read?: boolean | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          phone: string | null
+          updated_at: string | null
+          user_type: string
+          verification_status: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          updated_at?: string | null
+          user_type: string
+          verification_status?: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          updated_at?: string | null
+          user_type?: string
+          verification_status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_institution_in_conversation: {
+        Args: { conv_id: string }
+        Returns: boolean
+      }
+      is_investor_in_conversation: {
+        Args: { conv_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
