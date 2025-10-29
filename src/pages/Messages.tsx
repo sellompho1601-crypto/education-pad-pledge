@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { Card } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import ConversationList from '@/components/ConversationList';
 import MessageList from '@/components/MessageList';
 import MessageInput from '@/components/MessageInput';
