@@ -10,6 +10,7 @@ import { MessageSquare, Users, FileText, Plus, Activity, Calendar, Building2, Ch
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
+import { CertificateUpload } from '@/components/dashboard/CertificateUpload';
 
 export default function InstitutionDashboard() {
   const navigate = useNavigate();
@@ -196,17 +197,24 @@ export default function InstitutionDashboard() {
       case 'analytics':
       case 'profile':
         return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="capitalize">{activeTab}</CardTitle>
-              <CardDescription>Manage your {activeTab}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center py-12">
-                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} features coming soon
-              </p>
-            </CardContent>
-          </Card>
+          <div className="space-y-6">
+            <CertificateUpload 
+              userType="institution"
+              currentCertificateUrl={institutionData?.certificate_url}
+              onUploadSuccess={fetchDashboardData}
+            />
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Settings</CardTitle>
+                <CardDescription>Additional profile features coming soon</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground text-center py-12">
+                  Profile management features coming soon
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         );
       default:
         return null;
