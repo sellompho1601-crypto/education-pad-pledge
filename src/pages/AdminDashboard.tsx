@@ -9,6 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Users, Building2, TrendingUp, MessageSquare, CheckCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { UsersManagement } from '@/components/dashboard/admin/UsersManagement';
+import { InstitutionsManagement } from '@/components/dashboard/admin/InstitutionsManagement';
+import { InvestorsManagement } from '@/components/dashboard/admin/InvestorsManagement';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -155,8 +158,11 @@ export default function AdminDashboard() {
           </div>
         );
       case 'users':
+        return <UsersManagement />;
       case 'organizations':
+        return <InvestorsManagement />;
       case 'institutions':
+        return <InstitutionsManagement />;
       case 'donations':
       case 'settings':
         return (
