@@ -75,16 +75,12 @@ export const CertificateUpload = ({ userType, currentCertificateUrl, onUploadSuc
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('certificates')
-        .getPublicUrl(fileName);
-
-      // Update the appropriate table
+      // Store the file path (not URL) since bucket is private
+      // Update the appropriate table with file path
       const table = userType === 'institution' ? 'institutions' : 'investors';
       const { error: updateError } = await supabase
         .from(table)
-        .update({ certificate_url: publicUrl })
+        .update({ certificate_url: fileName })
         .eq('user_id', user.id);
 
       if (updateError) throw updateError;
@@ -226,7 +222,14 @@ export const CertificateUpload = ({ userType, currentCertificateUrl, onUploadSuc
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => window.open(currentCertificateUrl, '_blank')}
+            onClick={async () => {
+              const { data } = await supabase.storage
+                .from('certificates')
+                .createSignedUrl(currentCertificateUrl, 60);
+              if (data?.signedUrl) {
+                window.open(data.signedUrl, '_blank');
+              }
+            }}
           >
             View Uploaded Certificate
           </Button>
