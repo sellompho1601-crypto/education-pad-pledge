@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Shield, Users, Building2, GraduationCap, Heart, Settings, Home, ChevronRight } from "lucide-react";
+import { Shield, Users, Building2, GraduationCap, Heart, Settings, Home, ChevronRight, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface SidebarOption {
   icon: any;
@@ -25,18 +27,38 @@ interface AdminSidebarProps {
 
 export const AdminSidebar = ({ selected, onSelect }: AdminSidebarProps) => {
   const [open, setOpen] = useState(true);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: 'Logged out',
+        description: 'You have been logged out successfully',
+      });
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to log out',
+        variant: 'destructive',
+      });
+    }
+  };
 
   return (
     <motion.nav
       layout
-      className="sticky top-0 h-screen shrink-0 border-r border-border bg-card p-2"
+      className="sticky top-0 h-screen shrink-0 border-r border-border bg-card p-2 flex flex-col"
       style={{
         width: open ? "225px" : "fit-content",
       }}
     >
       <TitleSection open={open} />
 
-      <div className="space-y-1">
+      <div className="space-y-1 flex-1">
         {menuItems.map((item) => (
           <Option
             key={item.value}
@@ -49,6 +71,7 @@ export const AdminSidebar = ({ selected, onSelect }: AdminSidebarProps) => {
         ))}
       </div>
 
+      <LogoutButton open={open} onLogout={handleLogout} />
       <ToggleClose open={open} setOpen={setOpen} />
     </motion.nav>
   );
@@ -144,12 +167,42 @@ const Logo = () => {
   );
 };
 
+const LogoutButton = ({ open, onLogout }: { open: boolean; onLogout: () => void }) => {
+  return (
+    <motion.button
+      layout
+      onClick={onLogout}
+      className="w-full border-t border-border transition-colors hover:bg-destructive/10 text-destructive"
+    >
+      <div className="flex items-center p-2">
+        <motion.div
+          layout
+          className="grid size-10 place-content-center text-lg"
+        >
+          <LogOut className="h-5 w-5" />
+        </motion.div>
+        {open && (
+          <motion.span
+            layout
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.125 }}
+            className="text-xs font-medium"
+          >
+            Logout
+          </motion.span>
+        )}
+      </div>
+    </motion.button>
+  );
+};
+
 const ToggleClose = ({ open, setOpen }: { open: boolean; setOpen: (open: boolean) => void }) => {
   return (
     <motion.button
       layout
       onClick={() => setOpen(!open)}
-      className="absolute bottom-0 left-0 right-0 border-t border-border transition-colors hover:bg-muted"
+      className="w-full border-t border-border transition-colors hover:bg-muted"
     >
       <div className="flex items-center p-2">
         <motion.div

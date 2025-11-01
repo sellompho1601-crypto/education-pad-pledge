@@ -12,6 +12,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { UsersManagement } from '@/components/dashboard/admin/UsersManagement';
 import { InstitutionsManagement } from '@/components/dashboard/admin/InstitutionsManagement';
 import { InvestorsManagement } from '@/components/dashboard/admin/InvestorsManagement';
+import { SettingsManagement } from '@/components/dashboard/admin/SettingsManagement';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -163,8 +164,9 @@ export default function AdminDashboard() {
         return <InvestorsManagement />;
       case 'institutions':
         return <InstitutionsManagement />;
-      case 'donations':
       case 'settings':
+        return <SettingsManagement />;
+      case 'donations':
         return (
           <Card>
             <CardHeader>
