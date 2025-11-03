@@ -13,6 +13,7 @@ import { UsersManagement } from '@/components/dashboard/admin/UsersManagement';
 import { InstitutionsManagement } from '@/components/dashboard/admin/InstitutionsManagement';
 import { InvestorsManagement } from '@/components/dashboard/admin/InvestorsManagement';
 import { SettingsManagement } from '@/components/dashboard/admin/SettingsManagement';
+import { DonationsManagement } from '@/components/dashboard/admin/DonationsManagement';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -167,19 +168,7 @@ export default function AdminDashboard() {
       case 'settings':
         return <SettingsManagement />;
       case 'donations':
-        return (
-          <Card>
-            <CardHeader>
-              <CardTitle className="capitalize">{activeTab} Management</CardTitle>
-              <CardDescription>Manage {activeTab} and related settings</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-center py-12">
-                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} management features coming soon
-              </p>
-            </CardContent>
-          </Card>
-        );
+        return <DonationsManagement />;
       default:
         return null;
     }
