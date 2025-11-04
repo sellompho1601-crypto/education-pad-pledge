@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { CertificateUpload } from '@/components/dashboard/CertificateUpload';
+import { InvestorDonations } from '@/components/dashboard/investor/InvestorDonations';
 
 export default function InvestorDashboard() {
   const navigate = useNavigate();
@@ -162,6 +163,7 @@ export default function InvestorDashboard() {
           </div>
         );
       case 'donations':
+        return <InvestorDonations />;
       case 'institutions':
       case 'messages':
       case 'analytics':
