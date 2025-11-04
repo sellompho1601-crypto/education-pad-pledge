@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import RegisterInstitution from "./pages/RegisterInstitution";
 import RegisterInvestor from "./pages/RegisterInvestor";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import Messages from "./pages/Messages";
 import AdminDashboard from "./pages/AdminDashboard";
 import InstitutionDashboard from "./pages/InstitutionDashboard";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/register/institution" element={<RegisterInstitution />} />
           <Route path="/register/investor" element={<RegisterInvestor />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/dashboard/admin" element={<AdminDashboard />} />
           <Route path="/dashboard/institution" element={<InstitutionDashboard />} />
