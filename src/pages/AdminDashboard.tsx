@@ -37,6 +37,27 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (role === 'admin') {
       fetchDashboardData();
+
+      // Set up realtime subscription for profiles table
+      const channel = supabase
+        .channel('profiles-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'profiles'
+          },
+          () => {
+            // Refetch data when any change occurs
+            fetchDashboardData();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [role]);
 
