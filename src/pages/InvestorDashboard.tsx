@@ -12,6 +12,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { CertificateUpload } from '@/components/dashboard/CertificateUpload';
 import { InvestorDonations } from '@/components/dashboard/investor/InvestorDonations';
+import { InstitutionsList } from '@/components/dashboard/investor/InstitutionsList';
+import { InvestorAnalytics } from '@/components/dashboard/investor/InvestorAnalytics';
+import { InvestorProfile } from '@/components/dashboard/investor/InvestorProfile';
 
 export default function InvestorDashboard() {
   const navigate = useNavigate();
@@ -165,29 +168,14 @@ export default function InvestorDashboard() {
       case 'donations':
         return <InvestorDonations />;
       case 'institutions':
+        return <InstitutionsList />;
       case 'messages':
+        navigate('/messages');
+        return null;
       case 'analytics':
+        return <InvestorAnalytics />;
       case 'profile':
-        return (
-          <div className="space-y-6">
-            <CertificateUpload 
-              userType="investor"
-              currentCertificateUrl={investorData?.certificate_url}
-              onUploadSuccess={fetchDashboardData}
-            />
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Settings</CardTitle>
-                <CardDescription>Additional profile features coming soon</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-center py-12">
-                  Profile management features coming soon
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        );
+        return <InvestorProfile />;
       default:
         return null;
     }
