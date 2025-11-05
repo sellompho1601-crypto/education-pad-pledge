@@ -55,7 +55,7 @@ export default function InvestorDashboard() {
         .from('investors')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       setInvestorData(investor);
 

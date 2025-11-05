@@ -52,7 +52,7 @@ export const InvestorAnalytics = () => {
         .from('investors')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!investor) throw new Error('Investor profile not found');
 
