@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { TrendingUp, DollarSign, Building2, Calendar } from 'lucide-react';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Bar, BarChart, Line, LineChart, Pie, PieChart, Cell, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
 
 interface AnalyticsData {
   totalDonations: number;
@@ -19,6 +21,26 @@ export const InvestorAnalytics = () => {
 
   useEffect(() => {
     fetchAnalytics();
+
+    // Set up real-time subscription for donations
+    const channel = supabase
+      .channel('donations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'donations'
+        },
+        () => {
+          fetchAnalytics();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchAnalytics = async () => {
@@ -145,27 +167,79 @@ export const InvestorAnalytics = () => {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Donation trends over the last 6 months</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {analytics.donationsByMonth.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{item.month}</p>
-                  <p className="text-sm text-muted-foreground">{item.count} donations</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold">${item.amount.toLocaleString()}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Donation Trends</CardTitle>
+            <CardDescription>Monthly donation amounts over the last 6 months</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={{
+                amount: {
+                  label: "Amount",
+                  color: "hsl(var(--primary))",
+                },
+              }}
+              className="h-[300px]"
+            >
+              <BarChart data={analytics.donationsByMonth}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis 
+                  dataKey="month" 
+                  className="text-xs"
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                />
+                <YAxis 
+                  className="text-xs"
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Donation Volume</CardTitle>
+            <CardDescription>Number of donations per month</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              config={{
+                count: {
+                  label: "Donations",
+                  color: "hsl(var(--chart-2))",
+                },
+              }}
+              className="h-[300px]"
+            >
+              <LineChart data={analytics.donationsByMonth}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis 
+                  dataKey="month" 
+                  className="text-xs"
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                />
+                <YAxis 
+                  className="text-xs"
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line 
+                  type="monotone" 
+                  dataKey="count" 
+                  stroke="hsl(var(--chart-2))" 
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--chart-2))', r: 4 }}
+                />
+              </LineChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
