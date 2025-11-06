@@ -9,6 +9,7 @@ interface Conversation {
   other_party_type: 'institution' | 'investor';
   updated_at: string;
   unread_count?: number;
+  last_message?: string;
 }
 
 interface ConversationListProps {
@@ -52,20 +53,27 @@ const ConversationList = ({ conversations, selectedId, onSelect }: ConversationL
                 <h4 className="font-semibold text-sm truncate">
                   {conversation.other_party_name}
                 </h4>
+                <span className="text-xs text-muted-foreground ml-2 flex-shrink-0">
+                  {formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true })}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  {conversation.last_message && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {conversation.last_message}
+                    </p>
+                  )}
+                  <span className="text-xs text-muted-foreground capitalize">
+                    {conversation.other_party_type}
+                  </span>
+                </div>
                 {conversation.unread_count && conversation.unread_count > 0 && (
-                  <span className="bg-primary text-primary-foreground text-xs rounded-full px-2 py-0.5">
+                  <span className="bg-primary text-primary-foreground text-xs rounded-full px-2 py-0.5 flex-shrink-0">
                     {conversation.unread_count}
                   </span>
                 )}
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground capitalize">
-                  {conversation.other_party_type}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true })}
-                </span>
               </div>
             </div>
           </div>
