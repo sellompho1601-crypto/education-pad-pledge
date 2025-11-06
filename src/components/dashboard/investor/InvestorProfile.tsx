@@ -45,7 +45,7 @@ export const InvestorProfile = () => {
         .from('investors')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (investorError) throw investorError;
 
