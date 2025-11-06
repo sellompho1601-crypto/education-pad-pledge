@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { GraduationCap, Home, Activity, FileText, BarChart3, Settings, ChevronRight } from "lucide-react";
+import { GraduationCap, Home, Activity, FileText, BarChart3, Settings, ChevronRight, MessageSquare, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface SidebarOption {
   icon: any;
@@ -11,6 +14,7 @@ interface SidebarOption {
 const menuItems: SidebarOption[] = [
   { icon: Home, title: "Overview", value: "overview" },
   { icon: Activity, title: "Donations", value: "donations" },
+  { icon: MessageSquare, title: "Messages", value: "messages" },
   { icon: FileText, title: "Reports", value: "reports" },
   { icon: BarChart3, title: "Analytics", value: "analytics" },
   { icon: Settings, title: "Profile", value: "profile" },
@@ -20,10 +24,22 @@ interface InstitutionSidebarProps {
   selected: string;
   onSelect: (value: string) => void;
   pendingCount?: number;
+  messageCount?: number;
 }
 
-export const InstitutionSidebar = ({ selected, onSelect, pendingCount }: InstitutionSidebarProps) => {
+export const InstitutionSidebar = ({ selected, onSelect, pendingCount, messageCount }: InstitutionSidebarProps) => {
   const [open, setOpen] = useState(true);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logged out successfully");
+      navigate('/');
+    } catch (error) {
+      toast.error("Failed to logout");
+    }
+  };
 
   return (
     <motion.nav
@@ -44,9 +60,41 @@ export const InstitutionSidebar = ({ selected, onSelect, pendingCount }: Institu
             selected={selected}
             setSelected={onSelect}
             open={open}
-            notifs={item.value === "donations" ? pendingCount : undefined}
+            notifs={
+              item.value === "donations" 
+                ? pendingCount 
+                : item.value === "messages" 
+                ? messageCount 
+                : undefined
+            }
           />
         ))}
+      </div>
+
+      <div className="mt-auto">
+        <motion.button
+          layout
+          onClick={handleLogout}
+          className="relative flex h-10 w-full items-center rounded-md transition-colors text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        >
+          <motion.div
+            layout
+            className="grid h-full w-10 place-content-center text-lg"
+          >
+            <LogOut className="h-5 w-5" />
+          </motion.div>
+          {open && (
+            <motion.span
+              layout
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.125 }}
+              className="text-xs font-medium"
+            >
+              Logout
+            </motion.span>
+          )}
+        </motion.button>
       </div>
 
       <ToggleClose open={open} setOpen={setOpen} />

@@ -192,6 +192,9 @@ export default function InstitutionDashboard() {
             )}
           </div>
         );
+      case 'messages':
+        navigate('/messages');
+        return null;
       case 'donations':
       case 'reports':
       case 'analytics':
@@ -227,6 +230,7 @@ export default function InstitutionDashboard() {
         selected={activeTab} 
         onSelect={setActiveTab}
         pendingCount={stats.pendingMessages}
+        messageCount={stats.pendingMessages}
       />
       <main className="flex-1 overflow-y-auto p-8">
         <div className="mb-8">
