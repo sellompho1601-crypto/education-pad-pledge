@@ -63,9 +63,21 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const { data: profiles } = await supabase
+      const { data: profiles, error } = await supabase
         .from('profiles')
         .select('*');
+
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch user data: ' + error.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      console.log('Fetched profiles:', profiles);
 
       const pending = profiles?.filter(p => p.verification_status === 'pending') || [];
       const institutions = profiles?.filter(p => p.user_type === 'institution') || [];
@@ -81,6 +93,11 @@ export default function AdminDashboard() {
       setPendingUsers(pending);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive',
+      });
     }
   };
 
