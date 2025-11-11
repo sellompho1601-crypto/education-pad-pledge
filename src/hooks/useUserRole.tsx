@@ -19,17 +19,36 @@ export const useUserRole = () => {
           return;
         }
 
+        // First check if user has admin role in user_roles table
+        const { data: adminRole } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .maybeSingle();
+
+        if (adminRole) {
+          setRole('admin');
+          setUserType('admin');
+          setLoading(false);
+          return;
+        }
+
         // Get user profile to determine type
         const { data: profile } = await supabase
           .from('profiles')
           .select('user_type')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
         if (profile) {
           setUserType(profile.user_type);
-          // For now, treat user_type as role (admin role will be handled separately later)
-          setRole(profile.user_type as UserRole);
+          // Check if user_type is admin (for backward compatibility)
+          if (profile.user_type === 'admin') {
+            setRole('admin');
+          } else {
+            setRole(profile.user_type as UserRole);
+          }
         }
 
         setLoading(false);
