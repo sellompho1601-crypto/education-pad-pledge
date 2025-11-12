@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Search, MapPin, Building2, Mail } from 'lucide-react';
+import { Search, MapPin, Building2, Mail, Users, Globe } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface Institution {
   id: string;
@@ -101,69 +102,185 @@ export const InstitutionsList = () => {
   );
 
   if (loading) {
-    return <div className="text-center py-8">Loading institutions...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading institutions...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold mb-2">Institutions</h2>
-        <p className="text-muted-foreground">Browse and connect with verified institutions</p>
+    <div className="space-y-8">
+      <div className="text-center space-y-3">
+        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          Educational Institutions
+        </h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          Discover and connect with verified institutions making a difference in education
+        </p>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input
-          placeholder="Search institutions by name, country, or city..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredInstitutions.map((institution) => (
-          <Card key={institution.id} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                {institution.institution_name}
-              </CardTitle>
-              <CardDescription className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                {institution.city}, {institution.country}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-sm space-y-2">
-                <p className="text-muted-foreground">
-                  <span className="font-medium">Contact:</span> {institution.contact_person}
-                </p>
-                {institution.contact_position && (
-                  <p className="text-muted-foreground">
-                    <span className="font-medium">Position:</span> {institution.contact_position}
-                  </p>
-                )}
-                <p className="text-muted-foreground">
-                  <span className="font-medium">Address:</span> {institution.address}
-                </p>
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <Building2 className="h-6 w-6 text-blue-600" />
               </div>
+              <div>
+                <p className="text-2xl font-bold text-blue-900">{institutions.length}</p>
+                <p className="text-sm text-blue-700">Total Institutions</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-green-100 rounded-full">
+                <Globe className="h-6 w-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-green-900">
+                  {new Set(institutions.map(i => i.country)).size}
+                </p>
+                <p className="text-sm text-green-700">Countries</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-purple-100 rounded-full">
+                <Users className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-purple-900">
+                  {new Set(institutions.map(i => i.contact_person)).size}
+                </p>
+                <p className="text-sm text-purple-700">Contact Persons</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search Section */}
+      <Card className="bg-gradient-to-r from-slate-50 to-gray-50 border-slate-200">
+        <CardContent className="p-6">
+          <div className="relative max-w-2xl mx-auto">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+            <Input
+              placeholder="Search institutions by name, country, or city..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-12 pr-4 py-3 text-lg border-2 border-slate-300 focus:border-primary transition-colors"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Institutions Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+        {filteredInstitutions.map((institution) => (
+          <Card 
+            key={institution.id} 
+            className="group hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border-2 hover:border-primary/20 cursor-pointer bg-gradient-to-b from-white to-slate-50"
+          >
+            <CardHeader className="pb-4">
+              <div className="flex items-start justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
+                      <Building2 className="h-5 w-5 text-primary" />
+                    </div>
+                    <CardTitle className="text-xl font-bold group-hover:text-primary transition-colors">
+                      {institution.institution_name}
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="flex items-center gap-2 text-sm">
+                    <MapPin className="h-4 w-4 flex-shrink-0" />
+                    <span className="font-medium">{institution.city}, {institution.country}</span>
+                    <Badge variant="secondary" className="ml-2">
+                      {institution.country}
+                    </Badge>
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="space-y-4 pt-4 border-t">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                  <Users className="h-4 w-4 text-slate-600" />
+                  <div>
+                    <p className="font-medium text-sm">{institution.contact_person}</p>
+                    {institution.contact_position && (
+                      <p className="text-xs text-muted-foreground">{institution.contact_position}</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {institution.address}
+                  </p>
+                </div>
+              </div>
+              
               <Button
-                className="w-full"
+                className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary transition-all duration-300 group/btn"
                 onClick={() => handleContactInstitution(institution.id)}
+                size="lg"
               >
-                <Mail className="h-4 w-4 mr-2" />
-                Contact Institution
+                <Mail className="h-4 w-4 mr-2 group-hover/btn:scale-110 transition-transform" />
+                Start Conversation
               </Button>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {filteredInstitutions.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No institutions found</p>
-        </div>
+      {filteredInstitutions.length === 0 && searchQuery && (
+        <Card className="text-center py-16 border-dashed">
+          <CardContent>
+            <Building2 className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-muted-foreground mb-2">
+              No institutions found
+            </h3>
+            <p className="text-muted-foreground">
+              Try adjusting your search terms or browse all institutions
+            </p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={() => setSearchQuery('')}
+            >
+              Clear Search
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {filteredInstitutions.length === 0 && !searchQuery && (
+        <Card className="text-center py-16 border-dashed">
+          <CardContent>
+            <Building2 className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-muted-foreground mb-2">
+              No institutions available
+            </h3>
+            <p className="text-muted-foreground">
+              Check back later for new institution registrations
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

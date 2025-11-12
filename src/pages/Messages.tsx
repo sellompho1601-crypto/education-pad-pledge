@@ -1,453 +1,605 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
-import { Card } from '@/components/ui/card';
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import ConversationList from '@/components/ConversationList';
-import MessageList from '@/components/MessageList';
-import MessageInput from '@/components/MessageInput';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
+import { 
+  MessageSquare, 
+  Send, 
+  Plus,
+  Search,
+  MoreVertical,
+  Check,
+  CheckCheck,
+  Building2,
+  User,
+  Paperclip,
+  Smile
+} from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
-import { MessageCircle, AlertCircle, Plus, ArrowLeft } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { InstitutionSidebar } from '@/components/dashboard/InstitutionSidebar';
+import { InvestorSidebar } from '@/components/dashboard/InvestorSidebar';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useNavigate } from 'react-router-dom';
 
-const Messages = () => {
-  const [searchParams] = useSearchParams();
+interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  read: boolean;
+}
+
+interface Conversation {
+  id: string;
+  investor_id: string;
+  institution_id: string;
+  investor_name: string;
+  investor_type: string;
+  last_message: string;
+  last_message_time: string;
+  unread_count: number;
+  is_online: boolean;
+  created_at: string;
+}
+
+export default function InstitutionMessagesPage() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [userType, setUserType] = useState<'investor' | 'institution' | null>(null);
-  const [isVerified, setIsVerified] = useState(false);
-  const [conversations, setConversations] = useState<any[]>([]);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+  const { role, loading: roleLoading } = useUserRole();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [availablePartners, setAvailablePartners] = useState<any[]>([]);
-  const [showNewConversation, setShowNewConversation] = useState(false);
-  const [selectedPartner, setSelectedPartner] = useState<string>('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    checkAuthAndVerification();
+    initializeData();
   }, []);
 
   useEffect(() => {
-    const conversationId = searchParams.get('conversation');
-    if (conversationId) {
-      setSelectedConversationId(conversationId);
+    if (selectedConversation) {
+      fetchMessages(selectedConversation.id);
     }
-  }, [searchParams]);
+  }, [selectedConversation]);
 
   useEffect(() => {
-    if (currentUserId && isVerified) {
-      loadConversations();
-    }
-  }, [currentUserId, isVerified]);
+    scrollToBottom();
+  }, [messages]);
 
-  useEffect(() => {
-    if (selectedConversationId) {
-      loadMessages(selectedConversationId);
-      subscribeToMessages(selectedConversationId);
-    }
-  }, [selectedConversationId]);
-
-  const checkAuthAndVerification = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-
-    setCurrentUserId(user.id);
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('verification_status, user_type')
-      .eq('id', user.id)
-      .single();
-
-    if (profile?.verification_status === 'verified') {
-      setIsVerified(true);
-      setUserType(profile.user_type as 'investor' | 'institution');
-    }
-    
-    setLoading(false);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadConversations = async () => {
-    const { data, error } = await supabase
-      .from('conversations')
-      .select(`
-        id,
-        updated_at,
-        institutions!conversations_institution_id_fkey(id, institution_name, user_id),
-        investors!conversations_investor_id_fkey(id, company_name, investor_type, user_id)
-      `)
-      .order('updated_at', { ascending: false });
-
-    if (error) {
-      toast({
-        title: 'Error loading conversations',
-        description: error.message,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const formatted = data?.map((conv: any) => {
-      const isInstitution = conv.institutions.user_id === currentUserId;
-      return {
-        id: conv.id,
-        other_party_name: isInstitution 
-          ? (conv.investors.company_name || 'Investor')
-          : conv.institutions.institution_name,
-        other_party_type: isInstitution ? 'investor' : 'institution',
-        updated_at: conv.updated_at,
-      };
-    }) || [];
-
-    setConversations(formatted);
-  };
-
-  const loadMessages = async (conversationId: string) => {
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        id,
-        content,
-        sender_id,
-        created_at,
-        profiles!messages_sender_id_fkey(full_name)
-      `)
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      toast({
-        title: 'Error loading messages',
-        description: error.message,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const formatted = data?.map((msg: any) => ({
-      id: msg.id,
-      content: msg.content,
-      sender_id: msg.sender_id,
-      created_at: msg.created_at,
-      sender_name: msg.profiles?.full_name,
-    })) || [];
-
-    setMessages(formatted);
-  };
-
-  const subscribeToMessages = (conversationId: string) => {
-    const channel = supabase
-      .channel(`messages-${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        async (payload) => {
-          // Fetch full message with sender info
-          const { data: newMessage } = await supabase
-            .from('messages')
-            .select('id, content, sender_id, created_at, profiles!messages_sender_id_fkey(full_name)')
-            .eq('id', payload.new.id)
-            .single();
-
-          if (newMessage) {
-            setMessages((prev) => [...prev, {
-              id: newMessage.id,
-              content: newMessage.content,
-              sender_id: newMessage.sender_id,
-              created_at: newMessage.created_at,
-              sender_name: (newMessage as any).profiles?.full_name,
-            }]);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  };
-
-  const handleSendMessage = async (content: string) => {
-    if (!selectedConversationId || !currentUserId) return;
-
-    const { error } = await supabase.from('messages').insert({
-      conversation_id: selectedConversationId,
-      sender_id: currentUserId,
-      content,
-    });
-
-    if (error) {
-      toast({
-        title: 'Error sending message',
-        description: error.message,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Reload conversations to update last message time
-    loadConversations();
-  };
-
-  const loadAvailablePartners = async () => {
-    if (!userType || !currentUserId) return;
-
+  const initializeData = async () => {
     try {
-      if (userType === 'investor') {
-        // Load institutions
-        const { data: institutions } = await supabase
-          .from('institutions')
-          .select('id, institution_name, user_id')
-          .neq('user_id', currentUserId);
-        
-        setAvailablePartners(institutions?.map(i => ({
-          id: i.id,
-          name: i.institution_name,
-          type: 'institution'
-        })) || []);
-      } else {
-        // Load investors
-        const { data: investors } = await supabase
-          .from('investors')
-          .select('id, company_name, investor_type, user_id')
-          .neq('user_id', currentUserId);
-        
-        setAvailablePartners(investors?.map(inv => ({
-          id: inv.id,
-          name: inv.company_name || `${inv.investor_type} Investor`,
-          type: 'investor'
-        })) || []);
-      }
-    } catch (error: any) {
-      console.error('Error loading partners:', error);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      setCurrentUserId(user.id);
+      await fetchConversations(user.id);
+    } catch (error) {
+      console.error('Error initializing data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCreateConversation = async () => {
-    if (!selectedPartner || !currentUserId || !userType) return;
-
+  const fetchConversations = async (userId: string) => {
     try {
-      // Check if conversation already exists
-      const existingConv = conversations.find((conv: any) => {
-        if (userType === 'investor') {
-          return conv.institution_id === selectedPartner;
-        } else {
-          return conv.investor_id === selectedPartner;
-        }
-      });
+      // Get user profile to determine role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-      if (existingConv) {
-        setSelectedConversationId(existingConv.id);
-        setShowNewConversation(false);
-        setSelectedPartner('');
-        toast({
-          title: 'Conversation exists',
-          description: 'Opening existing conversation',
-        });
-        return;
-      }
+      if (!profile) return;
 
-      // Get current user's investor/institution ID
-      let investorId = '';
-      let institutionId = '';
+      let conversationsData: Tables<'conversations'>[] = [];
 
-      if (userType === 'investor') {
-        const { data: investor } = await supabase
-          .from('investors')
-          .select('id')
-          .eq('user_id', currentUserId)
-          .single();
-        investorId = investor?.id || '';
-        institutionId = selectedPartner;
-      } else {
+      if (profile.user_type === 'institution') {
+        // Get institution ID
         const { data: institution } = await supabase
           .from('institutions')
-          .select('id')
-          .eq('user_id', currentUserId)
+          .select('*')
+          .eq('user_id', userId)
           .single();
-        institutionId = institution?.id || '';
-        investorId = selectedPartner;
-      }
 
-      const { data: newConv, error } = await supabase
-        .from('conversations')
+        if (!institution) return;
+
+        // Fetch conversations for institution
+        const { data: convs } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('institution_id', institution.id)
+          .order('created_at', { ascending: false });
+
+        conversationsData = convs || [];
+
+        // Fetch investor details for each conversation
+        const conversationsWithDetails = await Promise.all(
+          conversationsData.map(async (conv: Tables<'conversations'>) => {
+            const { data: investor } = await supabase
+              .from('investors')
+              .select('*')
+              .eq('id', conv.investor_id)
+              .single();
+
+            // Get last message
+            const { data: lastMsg } = await supabase
+              .from('messages')
+              .select('*')
+              .eq('conversation_id', conv.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+
+            // Get unread count
+            const { count } = await supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('conversation_id', conv.id)
+              .eq('read', false)
+              .neq('sender_id', userId);
+
+            return {
+              id: conv.id,
+              investor_id: conv.investor_id,
+              institution_id: conv.institution_id,
+              investor_name: investor?.company_name ?? investor?.investor_type ?? 'Unknown',
+              investor_type: investor?.investor_type ?? 'Investor',
+              last_message: lastMsg?.content ?? 'No messages yet',
+              last_message_time: lastMsg ? formatTimeAgo(lastMsg.created_at) : '',
+              unread_count: count || 0,
+              is_online: false,
+              created_at: conv.created_at
+            };
+          })
+        );
+
+        setConversations(conversationsWithDetails);
+        if (conversationsWithDetails.length > 0) {
+          setSelectedConversation(conversationsWithDetails[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    }
+  };
+
+  const fetchMessages = async (conversationId: string) => {
+    try {
+      const { data: messagesData } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (messagesData) {
+        const formattedMessages: Message[] = messagesData.map((msg: Tables<'messages'>) => ({
+          id: msg.id,
+          conversation_id: msg.conversation_id,
+          sender_id: msg.sender_id,
+          content: msg.content,
+          created_at: msg.created_at,
+          read: msg.read ?? false
+        }));
+
+        setMessages(formattedMessages);
+
+        // Mark messages as read
+        await supabase
+          .from('messages')
+          .update({ read: true } as TablesUpdate<'messages'>)
+          .eq('conversation_id', conversationId)
+          .neq('sender_id', currentUserId);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation || !currentUserId) return;
+
+    try {
+      const { data: newMsg, error } = await supabase
+        .from('messages')
         .insert({
-          investor_id: investorId,
-          institution_id: institutionId,
-        })
+          conversation_id: selectedConversation.id,
+          sender_id: currentUserId,
+          content: newMessage.trim(),
+        } as TablesInsert<'messages'>)
         .select()
         .single();
 
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Conversation created successfully',
-      });
+      if (newMsg) {
+        const message: Message = {
+          id: newMsg.id,
+          conversation_id: newMsg.conversation_id,
+          sender_id: newMsg.sender_id,
+          content: newMsg.content,
+          created_at: newMsg.created_at,
+          read: true
+        };
 
-      setShowNewConversation(false);
-      setSelectedPartner('');
-      await loadConversations();
-      setSelectedConversationId(newConv.id);
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
+        setMessages([...messages, message]);
+        setNewMessage('');
+
+        // Update conversation list
+        setConversations(conversations.map(conv => 
+          conv.id === selectedConversation.id 
+            ? { ...conv, last_message: newMessage.trim(), last_message_time: 'Just now' }
+            : conv
+        ));
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
     }
   };
 
-  useEffect(() => {
-    if (isVerified && userType) {
-      loadAvailablePartners();
+  const handleNewChat = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get institution
+      const { data: institution } = await supabase
+        .from('institutions')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!institution) return;
+
+      // Get first available investor (or implement investor selection modal)
+      const { data: investor } = await supabase
+        .from('investors')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (!investor) {
+        alert('No investors available');
+        return;
+      }
+
+      // Create new conversation
+      const { data: newConv, error } = await supabase
+        .from('conversations')
+        .insert({
+          investor_id: investor.id,
+          institution_id: institution.id
+        } as TablesInsert<'conversations'>)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (newConv) {
+        await fetchConversations(user.id);
+      }
+    } catch (error) {
+      console.error('Error creating conversation:', error);
     }
-  }, [isVerified, userType]);
+  };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
-  if (!isVerified) {
+  const formatTimeAgo = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
+  };
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const filteredConversations = conversations.filter(conv =>
+    conv.investor_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+
+  const handleSelect = (value: string) => {
+    if (value === 'messages') return;
+    if (role === 'institution') {
+      navigate('/dashboard/institution');
+    } else if (role === 'investor') {
+      navigate('/dashboard/investor');
+    }
+  };
+
+  if (loading || roleLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+      <div className="min-h-screen w-full bg-background flex flex-col">
         <Navbar />
-        <main className="container mx-auto px-4 py-20">
-          <Card className="max-w-md mx-auto p-8 text-center">
-            <AlertCircle className="h-12 w-12 text-warning mx-auto mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Verification Required</h1>
-            <p className="text-muted-foreground">
-              You must be verified to access the messaging feature. Please complete your verification process.
-            </p>
-          </Card>
-        </main>
-        <Footer />
+        <div className="flex flex-1 pt-24">
+          {role === 'institution' ? (
+            <InstitutionSidebar selected={'messages'} onSelect={handleSelect} pendingCount={totalUnread} messageCount={totalUnread} />
+          ) : role === 'investor' ? (
+            <InvestorSidebar selected={'messages'} onSelect={handleSelect} />
+          ) : null}
+          <main className="flex-1 overflow-y-auto p-8">
+            <div className="flex items-center justify-center min-h-[400px]">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading messages...</p>
+              </div>
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
+    <div className="min-h-screen w-full bg-background flex flex-col">
       <Navbar />
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-              <ArrowLeft className="h-5 w-5" />
+      <div className="flex flex-1 pt-24">
+        {role === 'institution' ? (
+          <InstitutionSidebar selected={'messages'} onSelect={handleSelect} pendingCount={totalUnread} messageCount={totalUnread} />
+        ) : role === 'investor' ? (
+          <InvestorSidebar selected={'messages'} onSelect={handleSelect} />
+        ) : null}
+        <main className="flex-1 overflow-y-auto p-8">
+          <div className="flex h-[calc(100vh-220px)] bg-card rounded-lg border overflow-hidden">
+      {/* Conversations List Sidebar */}
+      <div className="w-80 border-r flex flex-col bg-card">
+        {/* Header */}
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Messages</h2>
+            <Button size="sm" className="gap-2" onClick={handleNewChat}>
+              <Plus className="h-4 w-4" />
+              New Chat
             </Button>
-            <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent">
-              Messages
-            </h1>
           </div>
-          
-          <Dialog open={showNewConversation} onOpenChange={setShowNewConversation}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Conversation
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Start New Conversation</DialogTitle>
-                <DialogDescription>
-                  Select a {userType === 'investor' ? 'institution' : 'investor'} to start a conversation with
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <Select value={selectedPartner} onValueChange={setSelectedPartner}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={`Select a ${userType === 'investor' ? 'institution' : 'investor'}`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availablePartners.map((partner) => (
-                      <SelectItem key={partner.id} value={partner.id}>
-                        {partner.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => {
-                    setShowNewConversation(false);
-                    setSelectedPartner('');
-                  }}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleCreateConversation} disabled={!selectedPartner}>
-                    Start Conversation
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search conversations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
-          <Card className="lg:col-span-1 overflow-hidden flex flex-col">
-            <div className="p-4 border-b">
-              <h2 className="font-semibold">Conversations</h2>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <ConversationList
-                conversations={conversations}
-                selectedId={selectedConversationId || undefined}
-                onSelect={setSelectedConversationId}
-              />
-            </div>
-          </Card>
-
-          <Card className="lg:col-span-2 overflow-hidden flex flex-col">
-            {selectedConversationId ? (
-              <>
-                <div className="p-4 border-b">
-                  <h3 className="font-semibold">
-                    {conversations.find(c => c.id === selectedConversationId)?.other_party_name}
-                  </h3>
-                  <p className="text-xs text-muted-foreground capitalize">
-                    {conversations.find(c => c.id === selectedConversationId)?.other_party_type}
-                  </p>
-                </div>
-                <MessageList messages={messages} currentUserId={currentUserId || ''} />
-                <MessageInput onSendMessage={handleSendMessage} />
-              </>
+        {/* Conversations List */}
+        <ScrollArea className="flex-1">
+          <div className="p-2">
+            {filteredConversations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No conversations yet
+              </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                <MessageCircle className="h-16 w-16 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Select a conversation</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Choose a conversation from the list to start messaging
-                </p>
-                <Button onClick={() => setShowNewConversation(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Start New Conversation
+              filteredConversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  onClick={() => setSelectedConversation(conversation)}
+                  className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors mb-1 ${
+                    selectedConversation?.id === conversation.id ? 'bg-muted' : ''
+                  }`}
+                >
+                  <div className="relative">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        {getInitials(conversation.investor_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {conversation.is_online && (
+                      <div className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-white"></div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-sm truncate">
+                        {conversation.investor_name}
+                      </p>
+                      <span className="text-xs text-muted-foreground">
+                        {conversation.last_message_time}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {conversation.investor_type}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground truncate flex-1">
+                        {conversation.last_message}
+                      </p>
+                      {conversation.unread_count > 0 && (
+                        <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                          {conversation.unread_count}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+
+      {/* Chat Area */}
+      {selectedConversation ? (
+        <div className="flex-1 flex flex-col">
+          {/* Chat Header */}
+          <div className="p-4 border-b bg-card">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarFallback className="bg-primary/10 text-primary">
+                    {getInitials(selectedConversation.investor_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="font-semibold">{selectedConversation.investor_name}</h3>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {selectedConversation.investor_type}
+                    </p>
+                    {selectedConversation.is_online && (
+                      <>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-green-600 font-medium">Online</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Messages Area */}
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4">
+              {messages.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  No messages yet. Start the conversation!
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender_id === currentUserId ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`flex gap-2 max-w-[70%] ${
+                        message.sender_id === currentUserId ? 'flex-row-reverse' : 'flex-row'
+                      }`}
+                    >
+                      <Avatar className="h-8 w-8 flex-shrink-0">
+                        <AvatarFallback className={message.sender_id === currentUserId ? 'bg-primary text-primary-foreground' : 'bg-muted'}>
+                          {message.sender_id === currentUserId ? (
+                            <Building2 className="h-4 w-4" />
+                          ) : (
+                            <User className="h-4 w-4" />
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className={`flex flex-col ${message.sender_id === currentUserId ? 'items-end' : 'items-start'}`}>
+                        <div
+                          className={`rounded-lg px-4 py-2 ${
+                            message.sender_id === currentUserId
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        </div>
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="text-xs text-muted-foreground">
+                            {formatTime(message.created_at)}
+                          </span>
+                          {message.sender_id === currentUserId && (
+                            <span className="text-xs">
+                              {message.read ? (
+                                <CheckCheck className="h-3 w-3 text-blue-500" />
+                              ) : (
+                                <Check className="h-3 w-3 text-muted-foreground" />
+                              )}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+
+          {/* Message Input */}
+          <div className="p-4 border-t bg-card">
+            <div className="flex items-end gap-2">
+              <Button variant="ghost" size="icon" className="flex-shrink-0">
+                <Paperclip className="h-5 w-5" />
+              </Button>
+              <div className="flex-1 relative">
+                <Input
+                  placeholder="Type a message..."
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  className="pr-10"
+                />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                >
+                  <Smile className="h-4 w-4" />
                 </Button>
               </div>
-            )}
-          </Card>
+              <Button 
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim()}
+                className="flex-shrink-0"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
-      </main>
-      <Footer />
+      ) : (
+        <div className="flex-1 flex items-center justify-center bg-muted/20">
+          <div className="text-center">
+            <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No conversation selected</h3>
+            <p className="text-muted-foreground mb-4">
+              Choose a conversation from the list or start a new chat
+            </p>
+            <Button className="gap-2" onClick={handleNewChat}>
+              <Plus className="h-4 w-4" />
+              New Chat
+            </Button>
+          </div>
+        </div>
+      )}
+          </div>
+        </main>
+      </div>
     </div>
   );
-};
-
-export default Messages;
+}

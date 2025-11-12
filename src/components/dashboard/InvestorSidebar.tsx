@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { Heart, Home, Building2, MessageSquare, BarChart3, Settings, ChevronRight } from "lucide-react";
+import { Heart, Home, Activity, FileText, Building2, MessageSquare, BarChart3, Settings, ChevronRight, LogOut } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface SidebarOption {
   icon: any;
@@ -25,18 +28,33 @@ interface InvestorSidebarProps {
 
 export const InvestorSidebar = ({ selected, onSelect, messageCount }: InvestorSidebarProps) => {
   const [open, setOpen] = useState(true);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logged out successfully");
+      navigate('/');
+    } catch (error) {
+      toast.error("Failed to logout");
+    }
+  };
 
   return (
     <motion.nav
       layout
-      className="sticky top-0 h-screen shrink-0 border-r border-border bg-card p-2"
+      className="sticky top-0 h-screen shrink-0 border-r border-border bg-gradient-to-b from-slate-50 to-white p-3 flex flex-col"
       style={{
-        width: open ? "225px" : "fit-content",
+        width: open ? "240px" : "64px",
       }}
     >
-      <TitleSection open={open} />
+      {/* Header Section */}
+      <div className="flex-shrink-0">
+        <TitleSection open={open} />
+      </div>
 
-      <div className="space-y-1">
+      {/* Navigation Menu */}
+      <div className="flex-1 space-y-1 py-4 overflow-y-auto">
         {menuItems.map((item) => (
           <Option
             key={item.value}
@@ -50,7 +68,36 @@ export const InvestorSidebar = ({ selected, onSelect, messageCount }: InvestorSi
         ))}
       </div>
 
-      <ToggleClose open={open} setOpen={setOpen} />
+      {/* Footer Section */}
+      <div className="flex-shrink-0 space-y-2">
+        {/* Logout Button */}
+        <motion.button
+          layout
+          onClick={handleLogout}
+          className="relative flex h-11 w-full items-center rounded-lg transition-all duration-200 text-slate-600 hover:bg-red-50 hover:text-red-600 border border-transparent hover:border-red-100"
+        >
+          <motion.div
+            layout
+            className="grid h-full w-11 place-content-center text-lg"
+          >
+            <LogOut className="h-5 w-5" />
+          </motion.div>
+          {open && (
+            <motion.span
+              layout
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-sm font-medium"
+            >
+              Logout
+            </motion.span>
+          )}
+        </motion.button>
+
+        {/* Collapse Toggle */}
+        <ToggleClose open={open} setOpen={setOpen} />
+      </div>
     </motion.nav>
   );
 };
@@ -71,29 +118,33 @@ const Option = ({ Icon, title, selected, setSelected, open, notifs }: OptionProp
     <motion.button
       layout
       onClick={() => setSelected(title.toLowerCase())}
-      className={`relative flex h-10 w-full items-center rounded-md transition-colors ${
-        isSelected ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
+      className={`relative flex h-11 w-full items-center rounded-lg transition-all duration-200 group ${
+        isSelected 
+          ? "bg-primary/10 text-primary border border-primary/20 shadow-sm" 
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent hover:border-slate-200"
       }`}
     >
       <motion.div
         layout
-        className="grid h-full w-10 place-content-center text-lg"
+        className={`grid h-full w-11 place-content-center text-lg transition-colors ${
+          isSelected ? "text-primary" : "text-slate-500 group-hover:text-slate-700"
+        }`}
       >
         <Icon className="h-5 w-5" />
       </motion.div>
       {open && (
         <motion.span
           layout
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.125 }}
-          className="text-xs font-medium"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+          className="text-sm font-medium pr-3"
         >
           {title}
         </motion.span>
       )}
 
-      {notifs !== undefined && notifs > 0 && open && (
+      {notifs !== undefined && notifs > 0 && (
         <motion.span
           initial={{ scale: 0, opacity: 0 }}
           animate={{
@@ -101,10 +152,14 @@ const Option = ({ Icon, title, selected, setSelected, open, notifs }: OptionProp
             scale: 1,
           }}
           style={{ y: "-50%" }}
-          transition={{ delay: 0.5 }}
-          className="absolute right-2 top-1/2 size-5 rounded bg-primary text-xs text-primary-foreground flex items-center justify-center font-medium"
+          transition={{ delay: 0.3, type: "spring" }}
+          className={`absolute top-1/2 size-5 rounded-full text-xs text-white flex items-center justify-center font-medium ${
+            open ? "right-3" : "right-2"
+          } ${
+            isSelected ? "bg-primary" : "bg-red-500"
+          }`}
         >
-          {notifs}
+          {notifs > 9 ? "9+" : notifs}
         </motion.span>
       )}
     </motion.button>
@@ -113,19 +168,20 @@ const Option = ({ Icon, title, selected, setSelected, open, notifs }: OptionProp
 
 const TitleSection = ({ open }: { open: boolean }) => {
   return (
-    <div className="mb-3 border-b border-border pb-3">
-      <div className="flex cursor-pointer items-center justify-between rounded-md transition-colors hover:bg-muted p-2">
-        <div className="flex items-center gap-2">
+    <div className="border-b border-slate-200 pb-4">
+      <div className="flex cursor-pointer items-center justify-between rounded-lg transition-colors hover:bg-slate-100 p-2">
+        <div className="flex items-center gap-3">
           <Logo />
           {open && (
             <motion.div
               layout
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.125 }}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="flex flex-col"
             >
-              <span className="block text-xs font-semibold">Investor Portal</span>
-              <span className="block text-xs text-muted-foreground">PadForward</span>
+              <span className="text-sm font-bold text-slate-900">Investor Portal</span>
+              <span className="text-xs text-slate-500">PadForward</span>
             </motion.div>
           )}
         </div>
@@ -138,9 +194,9 @@ const Logo = () => {
   return (
     <motion.div
       layout
-      className="grid size-10 shrink-0 place-content-center rounded-md bg-primary"
+      className="grid size-10 shrink-0 place-content-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-sm"
     >
-      <Heart className="h-6 w-6 text-primary-foreground" />
+      <Heart className="h-5 w-5 text-white" />
     </motion.div>
   );
 };
@@ -150,29 +206,29 @@ const ToggleClose = ({ open, setOpen }: { open: boolean; setOpen: (open: boolean
     <motion.button
       layout
       onClick={() => setOpen(!open)}
-      className="absolute bottom-0 left-0 right-0 border-t border-border transition-colors hover:bg-muted"
+      className="flex w-full items-center justify-center rounded-lg transition-all duration-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 p-2 border border-slate-200 hover:border-slate-300"
     >
-      <div className="flex items-center p-2">
-        <motion.div
+      <motion.div
+        layout
+        className="grid size-8 place-content-center"
+      >
+        <ChevronRight
+          className={`transition-transform duration-200 h-4 w-4 ${
+            open ? "rotate-180" : "rotate-0"
+          }`}
+        />
+      </motion.div>
+      {open && (
+        <motion.span
           layout
-          className="grid size-10 place-content-center text-lg"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+          className="text-sm font-medium ml-2"
         >
-          <ChevronRight
-            className={`transition-transform h-5 w-5 ${open && "rotate-180"}`}
-          />
-        </motion.div>
-        {open && (
-          <motion.span
-            layout
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.125 }}
-            className="text-xs font-medium"
-          >
-            Collapse
-          </motion.span>
-        )}
-      </div>
+          Collapse
+        </motion.span>
+      )}
     </motion.button>
   );
 };

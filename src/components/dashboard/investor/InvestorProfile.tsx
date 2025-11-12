@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Phone, Building2, FileText } from 'lucide-react';
+import { User, Mail, Phone, Building2, FileText, Shield, BadgeCheck, Clock, AlertCircle } from 'lucide-react';
 import { CertificateUpload } from '../CertificateUpload';
+import { Badge } from '@/components/ui/badge';
 
 interface ProfileData {
   full_name: string;
@@ -116,134 +117,223 @@ export const InvestorProfile = () => {
     fetchProfile(); // Refresh profile after certificate upload
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'verified':
+        return <BadgeCheck className="h-5 w-5 text-green-600" />;
+      case 'rejected':
+        return <AlertCircle className="h-5 w-5 text-red-600" />;
+      default:
+        return <Clock className="h-5 w-5 text-yellow-600" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'verified':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'rejected':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    }
+  };
+
   if (loading) {
-    return <div className="text-center py-8">Loading profile...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Loading your profile...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!profile) {
-    return <div className="text-center py-8">Profile not found</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <User className="h-16 w-16 text-muted-foreground/50 mx-auto" />
+          <div>
+            <p className="text-lg font-semibold text-muted-foreground">Profile not found</p>
+            <p className="text-muted-foreground">Please try refreshing the page</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold mb-2">Profile</h2>
-        <p className="text-muted-foreground">Manage your investor profile and verification</p>
+    <div className="space-y-8">
+      {/* Header Section */}
+      <div className="text-center space-y-3">
+        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          Investor Profile
+        </h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          Manage your profile details and verification status
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
-            <CardDescription>Update your profile details</CardDescription>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Personal Information Card */}
+        <Card className="lg:col-span-2 border-2 hover:shadow-xl transition-all duration-300 bg-gradient-to-b from-white to-slate-50/50">
+          <CardHeader className="pb-4 border-b">
+            <CardTitle className="flex items-center gap-3 text-2xl">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              Personal Information
+            </CardTitle>
+            <CardDescription>Update your profile details and contact information</CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleUpdate} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="full_name">
-                  <User className="inline h-4 w-4 mr-2" />
-                  Full Name
-                </Label>
-                <Input
-                  id="full_name"
-                  value={profile.full_name}
-                  onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
-                  required
-                />
+          <CardContent className="pt-6">
+            <form onSubmit={handleUpdate} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <Label htmlFor="full_name" className="text-sm font-semibold flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Full Name
+                  </Label>
+                  <Input
+                    id="full_name"
+                    value={profile.full_name}
+                    onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
+                    required
+                    className="border-2 focus:border-primary transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="email" className="text-sm font-semibold flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Email Address
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={profile.email}
+                    disabled
+                    className="bg-slate-100 border-2 text-slate-600"
+                  />
+                  <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">
-                  <Mail className="inline h-4 w-4 mr-2" />
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={profile.email}
-                  disabled
-                  className="bg-muted"
-                />
-                <p className="text-xs text-muted-foreground">Email cannot be changed</p>
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <Label htmlFor="phone" className="text-sm font-semibold flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    Phone Number
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={profile.phone}
+                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                    className="border-2 focus:border-primary transition-colors"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="phone">
-                  <Phone className="inline h-4 w-4 mr-2" />
-                  Phone
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={profile.phone}
-                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="investor_type">
-                  <FileText className="inline h-4 w-4 mr-2" />
-                  Investor Type
-                </Label>
-                <Input
-                  id="investor_type"
-                  value={profile.investor_type}
-                  disabled
-                  className="bg-muted"
-                />
+                <div className="space-y-3">
+                  <Label htmlFor="investor_type" className="text-sm font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Investor Type
+                  </Label>
+                  <Input
+                    id="investor_type"
+                    value={profile.investor_type}
+                    disabled
+                    className="bg-slate-100 border-2 text-slate-600"
+                  />
+                </div>
               </div>
 
               {profile.investor_type === 'corporate' && (
-                <div className="space-y-2">
-                  <Label htmlFor="company_name">
-                    <Building2 className="inline h-4 w-4 mr-2" />
+                <div className="space-y-3">
+                  <Label htmlFor="company_name" className="text-sm font-semibold flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
                     Company Name
                   </Label>
                   <Input
                     id="company_name"
                     value={profile.company_name || ''}
                     onChange={(e) => setProfile({ ...profile, company_name: e.target.value })}
+                    className="border-2 focus:border-primary transition-colors"
+                    placeholder="Enter your company name"
                   />
                 </div>
               )}
 
-              <Button type="submit" disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
+              <Button 
+                type="submit" 
+                disabled={saving}
+                className="w-full bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary transition-all duration-300"
+                size="lg"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Saving Changes...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
               </Button>
             </form>
           </CardContent>
         </Card>
 
+        {/* Sidebar Cards */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Verification Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Status:</span>
-                  <span className={`text-sm font-bold ${
-                    profile.verification_status === 'verified' 
-                      ? 'text-green-600' 
-                      : profile.verification_status === 'rejected'
-                      ? 'text-red-600'
-                      : 'text-yellow-600'
-                  }`}>
-                    {profile.verification_status.toUpperCase()}
-                  </span>
+          {/* Verification Status Card */}
+          <Card className="border-2 hover:shadow-lg transition-all duration-300 bg-gradient-to-b from-white to-slate-50/50">
+            <CardHeader className="pb-4 border-b">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Shield className="h-5 w-5 text-primary" />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {profile.verification_status === 'verified' 
-                    ? 'Your account is verified and active'
-                    : profile.verification_status === 'rejected'
-                    ? 'Please contact support for more information'
-                    : 'Your account is pending verification'}
-                </p>
+                Verification Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border-2">
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(profile.verification_status)}
+                    <span className="font-semibold">Account Status</span>
+                  </div>
+                  <Badge 
+                    variant="secondary" 
+                    className={`font-bold text-sm ${getStatusColor(profile.verification_status)}`}
+                  >
+                    {profile.verification_status.toUpperCase()}
+                  </Badge>
+                </div>
+                
+                <div className="p-4 bg-slate-50 rounded-lg border-2">
+                  <p className="text-sm text-slate-700">
+                    {profile.verification_status === 'verified' 
+                      ? '🎉 Your account is fully verified and active. You can access all platform features.'
+                      : profile.verification_status === 'rejected'
+                      ? '❌ Your verification was rejected. Please contact support for assistance.'
+                      : '⏳ Your account verification is in progress. This usually takes 1-2 business days.'}
+                  </p>
+                </div>
+
+                {profile.verification_status === 'pending' && (
+                  <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-xs text-blue-700">
+                      <strong>Note:</strong> Uploading required documents will speed up the verification process.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
+          {/* Certificate Upload Card */}
           <CertificateUpload 
             userType="investor"
             currentCertificateUrl={profile.certificate_url}
