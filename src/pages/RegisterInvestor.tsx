@@ -159,7 +159,7 @@ const RegisterInvestor = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="individual">Individual</SelectItem>
-                        <SelectItem value="organization">Organization</SelectItem>
+                        <SelectItem value="ngo">NGO / Organization</SelectItem>
                         <SelectItem value="foundation">Foundation</SelectItem>
                         <SelectItem value="corporate">Corporate</SelectItem>
                       </SelectContent>

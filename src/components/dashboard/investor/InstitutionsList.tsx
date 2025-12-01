@@ -56,9 +56,11 @@ export const InstitutionsList = () => {
         .from('investors')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (!investor) throw new Error('Investor profile not found');
+      if (!investor) {
+        throw new Error('Investor profile not found. Please complete your investor registration.');
+      }
 
       // Check if conversation already exists
       const { data: existingConv } = await supabase
@@ -66,7 +68,7 @@ export const InstitutionsList = () => {
         .select('id')
         .eq('investor_id', investor.id)
         .eq('institution_id', institutionId)
-        .single();
+        .maybeSingle();
 
       if (existingConv) {
         window.location.href = `/messages?conversation=${existingConv.id}`;
