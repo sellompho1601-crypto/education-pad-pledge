@@ -54,9 +54,9 @@ export const InvestorProfile = () => {
         full_name: profileData.full_name || '',
         email: profileData.email || '',
         phone: profileData.phone || '',
-        investor_type: investorData.investor_type || '',
-        company_name: investorData.company_name || null,
-        certificate_url: investorData.certificate_url || null,
+        investor_type: investorData?.investor_type || '',
+        company_name: investorData?.company_name || null,
+        certificate_url: investorData?.certificate_url || null,
         verification_status: profileData.verification_status || 'pending',
       });
     } catch (error: any) {
