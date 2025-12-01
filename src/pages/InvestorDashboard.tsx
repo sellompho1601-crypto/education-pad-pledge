@@ -67,10 +67,20 @@ export default function InvestorDashboard() {
 
       setInvestorData(investor);
 
+      if (!investor) {
+        setStats({
+          totalConversations: 0,
+          activeInstitutions: 0,
+          pendingMessages: 0,
+          verificationStatus: profile?.verification_status || 'pending',
+        });
+        return;
+      }
+
       const { data: conversations } = await supabase
         .from('conversations')
         .select('*')
-        .eq('investor_id', investor?.id || '');
+        .eq('investor_id', investor.id);
 
       const { data: messages } = await supabase
         .from('messages')
