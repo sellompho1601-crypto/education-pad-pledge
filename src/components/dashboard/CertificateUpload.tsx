@@ -78,6 +78,20 @@ export const CertificateUpload = ({ userType, currentCertificateUrl, onUploadSuc
       // Store the file path (not URL) since bucket is private
       // Update the appropriate table with file path
       const table = userType === 'institution' ? 'institutions' : 'investors';
+      
+      // First check if record exists
+      const { data: existingRecord } = await supabase
+        .from(table)
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!existingRecord) {
+        // Delete uploaded file since we can't save the reference
+        await supabase.storage.from('certificates').remove([fileName]);
+        throw new Error(`Please complete your ${userType} registration first`);
+      }
+
       const { error: updateError } = await supabase
         .from(table)
         .update({ certificate_url: fileName })
