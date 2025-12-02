@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { FileCheck, FileX, Eye, Building2, TrendingUp, Loader2 } from 'lucide-react';
+import { FileCheck, FileX, Eye, Building2, TrendingUp, Loader2, FileQuestion } from 'lucide-react';
 
 interface CertificateRecord {
   id: string;
@@ -78,37 +78,33 @@ export const CertificatesManagement = () => {
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]));
 
-      // Combine data
+      // Combine data - show ALL users regardless of certificate upload status
       const combinedCertificates: CertificateRecord[] = [];
 
       institutions?.forEach(inst => {
         const profile = profileMap.get(inst.user_id);
-        if (inst.certificate_url) {
-          combinedCertificates.push({
-            id: inst.id,
-            user_id: inst.user_id,
-            type: 'institution',
-            name: inst.institution_name,
-            email: profile?.email || 'N/A',
-            certificate_url: inst.certificate_url,
-            verification_status: profile?.verification_status || 'pending'
-          });
-        }
+        combinedCertificates.push({
+          id: inst.id,
+          user_id: inst.user_id,
+          type: 'institution',
+          name: inst.institution_name,
+          email: profile?.email || 'N/A',
+          certificate_url: inst.certificate_url,
+          verification_status: profile?.verification_status || 'pending'
+        });
       });
 
       investors?.forEach(inv => {
         const profile = profileMap.get(inv.user_id);
-        if (inv.certificate_url) {
-          combinedCertificates.push({
-            id: inv.id,
-            user_id: inv.user_id,
-            type: 'investor',
-            name: inv.company_name || profile?.full_name || 'N/A',
-            email: profile?.email || 'N/A',
-            certificate_url: inv.certificate_url,
-            verification_status: profile?.verification_status || 'pending'
-          });
-        }
+        combinedCertificates.push({
+          id: inv.id,
+          user_id: inv.user_id,
+          type: 'investor',
+          name: inv.company_name || profile?.full_name || 'N/A',
+          email: profile?.email || 'N/A',
+          certificate_url: inv.certificate_url,
+          verification_status: profile?.verification_status || 'pending'
+        });
       });
 
       setCertificates(combinedCertificates);
@@ -230,6 +226,13 @@ export const CertificatesManagement = () => {
     }
   };
 
+  const getCertificateStatusBadge = (hasUpload: boolean) => {
+    if (hasUpload) {
+      return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Uploaded</Badge>;
+    }
+    return <Badge variant="outline" className="bg-gray-50 text-gray-500 border-gray-200">Not Uploaded</Badge>;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -268,7 +271,8 @@ export const CertificatesManagement = () => {
                     <TableHead>Type</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Certificate</TableHead>
+                    <TableHead>Verification</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -287,38 +291,48 @@ export const CertificatesManagement = () => {
                       </TableCell>
                       <TableCell className="font-medium">{cert.name}</TableCell>
                       <TableCell className="text-muted-foreground">{cert.email}</TableCell>
+                      <TableCell>{getCertificateStatusBadge(!!cert.certificate_url)}</TableCell>
                       <TableCell>{getStatusBadge(cert.verification_status)}</TableCell>
                       <TableCell>
                         <div className="flex gap-2 justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handlePreview(cert)}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                          {cert.verification_status === 'pending' && (
+                          {cert.certificate_url ? (
                             <>
                               <Button
                                 size="sm"
-                                className="bg-green-600 hover:bg-green-700"
-                                onClick={() => handleApprove(cert)}
-                                disabled={processing}
+                                variant="outline"
+                                onClick={() => handlePreview(cert)}
                               >
-                                <FileCheck className="h-4 w-4 mr-1" />
-                                Approve
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => openRejectDialog(cert)}
-                                disabled={processing}
-                              >
-                                <FileX className="h-4 w-4 mr-1" />
-                                Reject
-                              </Button>
+                              {cert.verification_status === 'pending' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => handleApprove(cert)}
+                                    disabled={processing}
+                                  >
+                                    <FileCheck className="h-4 w-4 mr-1" />
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => openRejectDialog(cert)}
+                                    disabled={processing}
+                                  >
+                                    <FileX className="h-4 w-4 mr-1" />
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
                             </>
+                          ) : (
+                            <span className="text-sm text-muted-foreground flex items-center gap-1">
+                              <FileQuestion className="h-4 w-4" />
+                              Awaiting upload
+                            </span>
                           )}
                         </div>
                       </TableCell>
