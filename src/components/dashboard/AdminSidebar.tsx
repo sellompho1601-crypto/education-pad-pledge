@@ -1,5 +1,5 @@
 import { Profiler, useState } from "react";
-import { Shield, Users, Building2, GraduationCap, Heart, Settings, Home, ChevronRight, LogOut } from "lucide-react";
+import { Shield, Users, Building2, GraduationCap, Heart, Settings, Home, ChevronRight, LogOut, FileCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,7 @@ const menuItems: SidebarOption[] = [
   { icon: Users, title: "Users", value: "users" },
   { icon: Building2, title: "Organizations", value: "organizations" },
   { icon: GraduationCap, title: "Institutions", value: "institutions" },
+  { icon: FileCheck, title: "Certificates", value: "certificates" },
   { icon: Heart, title: "Donations", value: "donations" },
   { icon: Profiler, title: "Settings", value: "settings" },
 ];
