@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { User, Mail, Phone, Building2, FileText, Shield, BadgeCheck, Clock, AlertCircle } from 'lucide-react';
-import { CertificateUpload } from '../CertificateUpload';
 import { Badge } from '@/components/ui/badge';
 
 interface ProfileData {
@@ -111,10 +110,6 @@ export const InvestorProfile = () => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleCertificateUpload = () => {
-    fetchProfile(); // Refresh profile after certificate upload
   };
 
   const getStatusIcon = (status: string) => {
@@ -331,14 +326,7 @@ export const InvestorProfile = () => {
                 )}
               </div>
             </CardContent>
-          </Card>
-
-          {/* Certificate Upload Card */}
-          <CertificateUpload 
-            userType="investor"
-            currentCertificateUrl={profile.certificate_url}
-            onUploadSuccess={handleCertificateUpload} 
-          />
+        </Card>
         </div>
       </div>
     </div>

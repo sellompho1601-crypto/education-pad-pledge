@@ -317,7 +317,16 @@ export default function InvestorDashboard() {
       case 'reports':
         return <InvestorReports />;
       case 'profile':
-        return <InvestorProfile />;
+        return (
+          <div className="space-y-8">
+            <CertificateUpload 
+              userType="investor"
+              currentCertificateUrl={investorData?.certificate_url}
+              onUploadSuccess={fetchDashboardData}
+            />
+            <InvestorProfile />
+          </div>
+        );
       default:
         return null;
     }
