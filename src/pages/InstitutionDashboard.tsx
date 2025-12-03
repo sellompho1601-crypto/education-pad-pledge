@@ -16,6 +16,7 @@ import InstitutionReports from '@/components/dashboard/institution/InstitutionRe
 import InstitutionAnalytics from '@/components/dashboard/institution/InstitutionAnalytics';
 import InstitutionProfile from '@/components/dashboard/institution/InstitutionProfile';
 import { Navbar } from '@/components/Navbar';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export default function InstitutionDashboard() {
   const navigate = useNavigate();
@@ -393,8 +394,13 @@ export default function InstitutionDashboard() {
           pendingCount={stats.pendingMessages}
           messageCount={stats.pendingMessages}
         />
-        <main className="flex-1 overflow-y-auto p-8 pt-24">
-          {renderContent()}
+        <main className="flex-1 overflow-y-auto">
+          <div className="flex justify-end p-4 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10 mt-16">
+            <NotificationBell />
+          </div>
+          <div className="p-8">
+            {renderContent()}
+          </div>
         </main>
       </div>
     </div>
