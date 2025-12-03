@@ -16,6 +16,7 @@ import { InstitutionsList } from '@/components/dashboard/investor/InstitutionsLi
 import { InvestorAnalytics } from '@/components/dashboard/investor/InvestorAnalytics';
 import InvestorReports from '@/components/dashboard/investor/InvestorReport';
 import { InvestorProfile } from '@/components/dashboard/investor/InvestorProfile';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export default function InvestorDashboard() {
   const navigate = useNavigate();
@@ -339,8 +340,13 @@ export default function InvestorDashboard() {
         onSelect={setActiveTab}
         messageCount={stats.pendingMessages}
       />
-      <main className="flex-1 overflow-y-auto p-8">
-        {renderContent()}
+      <main className="flex-1 overflow-y-auto">
+        <div className="flex justify-end p-4 border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+          <NotificationBell />
+        </div>
+        <div className="p-8">
+          {renderContent()}
+        </div>
       </main>
     </div>
   );

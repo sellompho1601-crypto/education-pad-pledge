@@ -153,6 +153,14 @@ export const CertificatesManagement = () => {
 
       if (error) throw error;
 
+      // Create notification for the user
+      await supabase.from('notifications').insert({
+        user_id: cert.user_id,
+        title: 'Certificate Approved',
+        message: 'Your verification certificate has been approved. You now have full access to the platform.',
+        type: 'success',
+      });
+
       toast({
         title: 'Success',
         description: `${cert.name} has been verified successfully`,
@@ -190,9 +198,13 @@ export const CertificatesManagement = () => {
 
       if (error) throw error;
 
-      // Note: In a production app, you'd want to store the rejection reason
-      // in a separate table or send it via email to the user
-      console.log('Rejection reason:', rejectReason);
+      // Create notification for the user with rejection reason
+      await supabase.from('notifications').insert({
+        user_id: selectedCertificate.user_id,
+        title: 'Certificate Rejected',
+        message: `Your verification certificate has been rejected. Reason: ${rejectReason}`,
+        type: 'error',
+      });
 
       toast({
         title: 'Certificate Rejected',
