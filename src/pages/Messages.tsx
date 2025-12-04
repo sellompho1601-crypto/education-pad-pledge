@@ -6,6 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
@@ -19,6 +25,9 @@ import {
   CheckCheck,
   Building2,
   User,
+  Archive,
+  ArchiveRestore,
+  Trash2,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { InstitutionSidebar } from '@/components/dashboard/InstitutionSidebar';
@@ -45,6 +54,7 @@ interface Conversation {
   last_message_time: string;
   unread_count: number;
   created_at: string;
+  archived_by: string[];
 }
 
 interface VerifiedUser {
@@ -67,29 +77,44 @@ export default function MessagesPage() {
   const [verifiedUsers, setVerifiedUsers] = useState<VerifiedUser[]>([]);
   const [newChatDialogOpen, setNewChatDialogOpen] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedConversationRef = useRef<string | null>(null);
+
+  // Keep selectedConversationRef in sync
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversation?.id || null;
+  }, [selectedConversation]);
 
   useEffect(() => {
     initializeData();
   }, []);
 
-  // Real-time subscription for new messages
+  // Real-time subscription for new messages across ALL conversations
   useEffect(() => {
-    if (!selectedConversation) return;
+    if (!currentUserEntityId || !currentUserId) return;
 
     const channel = supabase
-      .channel(`messages-${selectedConversation.id}`)
+      .channel('all-messages')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `conversation_id=eq.${selectedConversation.id}`
         },
-        (payload) => {
+        async (payload) => {
           const newMsg = payload.new as Tables<'messages'>;
-          if (newMsg.sender_id !== currentUserId) {
+          
+          // Only process messages from others
+          if (newMsg.sender_id === currentUserId) return;
+
+          // Check if this message is for one of our conversations
+          const conv = conversations.find(c => c.id === newMsg.conversation_id);
+          if (!conv) return;
+
+          // If this conversation is currently selected, add message and mark as read
+          if (selectedConversationRef.current === newMsg.conversation_id) {
             const message: Message = {
               id: newMsg.id,
               conversation_id: newMsg.conversation_id,
@@ -99,12 +124,30 @@ export default function MessagesPage() {
               read: newMsg.read ?? false
             };
             setMessages(prev => [...prev, message]);
+            
             // Mark as read
-            supabase
+            await supabase
               .from('messages')
               .update({ read: true })
-              .eq('id', newMsg.id)
-              .then();
+              .eq('id', newMsg.id);
+          } else {
+            // Show notification for messages in other conversations
+            toast.info(`New message from ${conv.other_party_name}`, {
+              description: newMsg.content.length > 50 
+                ? newMsg.content.substring(0, 50) + '...' 
+                : newMsg.content,
+              action: {
+                label: 'View',
+                onClick: () => setSelectedConversation(conv)
+              }
+            });
+
+            // Update unread count
+            setConversations(prev => prev.map(c => 
+              c.id === newMsg.conversation_id 
+                ? { ...c, unread_count: c.unread_count + 1, last_message: newMsg.content, last_message_time: 'Just now' }
+                : c
+            ));
           }
         }
       )
@@ -113,7 +156,7 @@ export default function MessagesPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedConversation, currentUserId]);
+  }, [currentUserEntityId, currentUserId, conversations]);
 
   useEffect(() => {
     if (selectedConversation) {
@@ -172,7 +215,6 @@ export default function MessagesPage() {
   const fetchVerifiedUsers = async (userType: string) => {
     try {
       if (userType === 'institution') {
-        // Fetch verified investors
         const { data: investors } = await supabase
           .from('investors')
           .select(`
@@ -202,7 +244,6 @@ export default function MessagesPage() {
           setVerifiedUsers(verifiedInvestors);
         }
       } else if (userType === 'investor') {
-        // Fetch verified institutions
         const { data: institutions } = await supabase
           .from('institutions')
           .select(`
@@ -240,7 +281,7 @@ export default function MessagesPage() {
 
   const fetchConversations = async (userId: string, userType: string) => {
     try {
-      let conversationsData: Tables<'conversations'>[] = [];
+      let conversationsData: (Tables<'conversations'> & { archived_by: string[] })[] = [];
 
       if (userType === 'institution') {
         const { data: institution } = await supabase
@@ -257,7 +298,10 @@ export default function MessagesPage() {
           .eq('institution_id', institution.id)
           .order('updated_at', { ascending: false });
 
-        conversationsData = convs || [];
+        conversationsData = (convs || []).map(c => ({
+          ...c,
+          archived_by: (c as any).archived_by || []
+        }));
 
         const conversationsWithDetails = await Promise.all(
           conversationsData.map(async (conv) => {
@@ -301,14 +345,16 @@ export default function MessagesPage() {
               last_message: lastMsg?.content ?? 'No messages yet',
               last_message_time: lastMsg ? formatTimeAgo(lastMsg.created_at || '') : '',
               unread_count: count || 0,
-              created_at: conv.created_at || ''
+              created_at: conv.created_at || '',
+              archived_by: conv.archived_by || []
             };
           })
         );
 
         setConversations(conversationsWithDetails);
         if (conversationsWithDetails.length > 0 && !selectedConversation) {
-          setSelectedConversation(conversationsWithDetails[0]);
+          const nonArchived = conversationsWithDetails.find(c => !c.archived_by.includes(userId));
+          if (nonArchived) setSelectedConversation(nonArchived);
         }
       } else if (userType === 'investor') {
         const { data: investor } = await supabase
@@ -325,7 +371,10 @@ export default function MessagesPage() {
           .eq('investor_id', investor.id)
           .order('updated_at', { ascending: false });
 
-        conversationsData = convs || [];
+        conversationsData = (convs || []).map(c => ({
+          ...c,
+          archived_by: (c as any).archived_by || []
+        }));
 
         const conversationsWithDetails = await Promise.all(
           conversationsData.map(async (conv) => {
@@ -359,14 +408,16 @@ export default function MessagesPage() {
               last_message: lastMsg?.content ?? 'No messages yet',
               last_message_time: lastMsg ? formatTimeAgo(lastMsg.created_at || '') : '',
               unread_count: count || 0,
-              created_at: conv.created_at || ''
+              created_at: conv.created_at || '',
+              archived_by: conv.archived_by || []
             };
           })
         );
 
         setConversations(conversationsWithDetails);
         if (conversationsWithDetails.length > 0 && !selectedConversation) {
-          setSelectedConversation(conversationsWithDetails[0]);
+          const nonArchived = conversationsWithDetails.find(c => !c.archived_by.includes(userId));
+          if (nonArchived) setSelectedConversation(nonArchived);
         }
       }
     } catch (error) {
@@ -400,6 +451,11 @@ export default function MessagesPage() {
           .update({ read: true })
           .eq('conversation_id', conversationId)
           .neq('sender_id', currentUserId);
+
+        // Update unread count in state
+        setConversations(prev => prev.map(c => 
+          c.id === conversationId ? { ...c, unread_count: 0 } : c
+        ));
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -444,6 +500,38 @@ export default function MessagesPage() {
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
+    }
+  };
+
+  const handleArchiveConversation = async (conversationId: string) => {
+    try {
+      const conv = conversations.find(c => c.id === conversationId);
+      if (!conv) return;
+
+      const isArchived = conv.archived_by.includes(currentUserId);
+      const newArchivedBy = isArchived
+        ? conv.archived_by.filter(id => id !== currentUserId)
+        : [...conv.archived_by, currentUserId];
+
+      const { error } = await supabase
+        .from('conversations')
+        .update({ archived_by: newArchivedBy } as any)
+        .eq('id', conversationId);
+
+      if (error) throw error;
+
+      setConversations(prev => prev.map(c => 
+        c.id === conversationId ? { ...c, archived_by: newArchivedBy } : c
+      ));
+
+      if (selectedConversation?.id === conversationId && !isArchived) {
+        setSelectedConversation(null);
+      }
+
+      toast.success(isArchived ? 'Conversation restored' : 'Conversation archived');
+    } catch (error) {
+      console.error('Error archiving conversation:', error);
+      toast.error('Failed to archive conversation');
     }
   };
 
@@ -561,15 +649,21 @@ export default function MessagesPage() {
       .slice(0, 2);
   };
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.other_party_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredConversations = conversations.filter(conv => {
+    const matchesSearch = conv.other_party_name.toLowerCase().includes(searchQuery.toLowerCase());
+    const isArchived = conv.archived_by.includes(currentUserId);
+    return matchesSearch && (showArchived ? isArchived : !isArchived);
+  });
 
   const filteredVerifiedUsers = verifiedUsers.filter(user =>
     user.name.toLowerCase().includes(userSearchQuery.toLowerCase())
   );
 
-  const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+  const totalUnread = conversations
+    .filter(c => !c.archived_by.includes(currentUserId))
+    .reduce((sum, c) => sum + (c.unread_count || 0), 0);
+
+  const archivedCount = conversations.filter(c => c.archived_by.includes(currentUserId)).length;
 
   const handleSelect = (value: string) => {
     if (value === 'messages') return;
@@ -674,7 +768,7 @@ export default function MessagesPage() {
                     </DialogContent>
                   </Dialog>
                 </div>
-                <div className="relative">
+                <div className="relative mb-3">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search conversations..."
@@ -683,6 +777,26 @@ export default function MessagesPage() {
                     className="pl-9"
                   />
                 </div>
+                {/* Archive toggle */}
+                <div className="flex gap-2">
+                  <Button
+                    variant={showArchived ? 'outline' : 'default'}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setShowArchived(false)}
+                  >
+                    Active
+                  </Button>
+                  <Button
+                    variant={showArchived ? 'default' : 'outline'}
+                    size="sm"
+                    className="flex-1 gap-1"
+                    onClick={() => setShowArchived(true)}
+                  >
+                    <Archive className="h-3 w-3" />
+                    Archived {archivedCount > 0 && `(${archivedCount})`}
+                  </Button>
+                </div>
               </div>
 
               {/* Conversations List */}
@@ -690,45 +804,76 @@ export default function MessagesPage() {
                 <div className="p-2">
                   {filteredConversations.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground text-sm">
-                      No conversations yet
+                      {showArchived ? 'No archived conversations' : 'No conversations yet'}
                     </div>
                   ) : (
                     filteredConversations.map((conversation) => (
                       <div
                         key={conversation.id}
-                        onClick={() => setSelectedConversation(conversation)}
-                        className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors mb-1 ${
+                        className={`flex items-start gap-3 p-3 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors mb-1 group ${
                           selectedConversation?.id === conversation.id ? 'bg-muted' : ''
                         }`}
                       >
-                        <Avatar className="h-12 w-12">
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {getInitials(conversation.other_party_name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="font-semibold text-sm truncate">
-                              {conversation.other_party_name}
+                        <div 
+                          className="flex items-start gap-3 flex-1 min-w-0"
+                          onClick={() => setSelectedConversation(conversation)}
+                        >
+                          <Avatar className="h-12 w-12">
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              {getInitials(conversation.other_party_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="font-semibold text-sm truncate">
+                                {conversation.other_party_name}
+                              </p>
+                              <span className="text-xs text-muted-foreground">
+                                {conversation.last_message_time}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              {conversation.other_party_type}
                             </p>
-                            <span className="text-xs text-muted-foreground">
-                              {conversation.last_message_time}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mb-1">
-                            {conversation.other_party_type}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm text-muted-foreground truncate flex-1">
-                              {conversation.last_message}
-                            </p>
-                            {conversation.unread_count > 0 && (
-                              <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
-                                {conversation.unread_count}
-                              </Badge>
-                            )}
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-muted-foreground truncate flex-1">
+                                {conversation.last_message}
+                              </p>
+                              {conversation.unread_count > 0 && (
+                                <Badge className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                                  {conversation.unread_count}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleArchiveConversation(conversation.id)}>
+                              {conversation.archived_by.includes(currentUserId) ? (
+                                <>
+                                  <ArchiveRestore className="h-4 w-4 mr-2" />
+                                  Restore
+                                </>
+                              ) : (
+                                <>
+                                  <Archive className="h-4 w-4 mr-2" />
+                                  Archive
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     ))
                   )}
@@ -755,9 +900,19 @@ export default function MessagesPage() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleArchiveConversation(selectedConversation.id)}>
+                          <Archive className="h-4 w-4 mr-2" />
+                          Archive conversation
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 

@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       conversations: {
         Row: {
+          archived_by: string[] | null
           created_at: string | null
           id: string
           institution_id: string
@@ -23,6 +24,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          archived_by?: string[] | null
           created_at?: string | null
           id?: string
           institution_id: string
@@ -30,6 +32,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          archived_by?: string[] | null
           created_at?: string | null
           id?: string
           institution_id?: string
