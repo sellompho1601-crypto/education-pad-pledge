@@ -226,62 +226,63 @@ export default function MessagesPage() {
   const fetchVerifiedUsers = async (userType: string) => {
     try {
       if (userType === 'institution') {
-        const { data: investors } = await supabase
+        // Fetch investors with their profile data using a join
+        const { data: investors, error } = await supabase
           .from('investors')
           .select(`
             id,
             company_name,
             investor_type,
-            user_id
+            user_id,
+            profiles!investors_user_id_fkey (
+              verification_status,
+              full_name
+            )
           `);
 
+        if (error) {
+          console.error('Error fetching investors:', error);
+          return;
+        }
+
         if (investors) {
-          const verifiedInvestors: VerifiedUser[] = [];
-          for (const inv of investors) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('verification_status, full_name')
-              .eq('id', inv.user_id)
-              .single();
-            
-            if (profile?.verification_status === 'verified') {
-              verifiedInvestors.push({
-                id: inv.id,
-                name: inv.company_name || profile.full_name || inv.investor_type,
-                type: inv.investor_type
-              });
-            }
-          }
+          const verifiedInvestors: VerifiedUser[] = investors
+            .filter((inv: any) => inv.profiles?.verification_status === 'verified')
+            .map((inv: any) => ({
+              id: inv.id,
+              name: inv.company_name || inv.profiles?.full_name || inv.investor_type,
+              type: inv.investor_type
+            }));
           setVerifiedUsers(verifiedInvestors);
         }
       } else if (userType === 'investor') {
-        const { data: institutions } = await supabase
+        // Fetch institutions with their profile data using a join
+        const { data: institutions, error } = await supabase
           .from('institutions')
           .select(`
             id,
             institution_name,
             city,
             country,
-            user_id
+            user_id,
+            profiles!institutions_user_id_fkey (
+              verification_status
+            )
           `);
 
+        if (error) {
+          console.error('Error fetching institutions:', error);
+          return;
+        }
+
         if (institutions) {
-          const verifiedInstitutions: VerifiedUser[] = [];
-          for (const inst of institutions) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('verification_status')
-              .eq('id', inst.user_id)
-              .single();
-            
-            if (profile?.verification_status === 'verified') {
-              verifiedInstitutions.push({
-                id: inst.id,
-                name: inst.institution_name,
-                type: `${inst.city}, ${inst.country}`
-              });
-            }
-          }
+          const verifiedInstitutions: VerifiedUser[] = institutions
+            .filter((inst: any) => inst.profiles?.verification_status === 'verified')
+            .map((inst: any) => ({
+              id: inst.id,
+              name: inst.institution_name,
+              type: `${inst.city}, ${inst.country}`
+            }));
           setVerifiedUsers(verifiedInstitutions);
         }
       }
