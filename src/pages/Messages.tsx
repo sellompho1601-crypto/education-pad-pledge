@@ -28,6 +28,9 @@ import {
   Archive,
   ArchiveRestore,
   Trash2,
+  Paperclip,
+  X,
+  FileText,
 } from 'lucide-react';
 import { Navbar } from '@/components/Navbar';
 import { InstitutionSidebar } from '@/components/dashboard/InstitutionSidebar';
@@ -42,6 +45,8 @@ interface Message {
   content: string;
   created_at: string;
   read: boolean;
+  attachment_url?: string | null;
+  attachment_type?: string | null;
 }
 
 interface Conversation {
@@ -78,8 +83,12 @@ export default function MessagesPage() {
   const [newChatDialogOpen, setNewChatDialogOpen] = useState(false);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedConversationRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Keep selectedConversationRef in sync
   useEffect(() => {
@@ -121,7 +130,9 @@ export default function MessagesPage() {
               sender_id: newMsg.sender_id,
               content: newMsg.content,
               created_at: newMsg.created_at || new Date().toISOString(),
-              read: newMsg.read ?? false
+              read: newMsg.read ?? false,
+              attachment_url: (newMsg as any).attachment_url,
+              attachment_type: (newMsg as any).attachment_type
             };
             setMessages(prev => [...prev, message]);
             
@@ -440,7 +451,9 @@ export default function MessagesPage() {
           sender_id: msg.sender_id,
           content: msg.content,
           created_at: msg.created_at || new Date().toISOString(),
-          read: msg.read ?? false
+          read: msg.read ?? false,
+          attachment_url: (msg as any).attachment_url,
+          attachment_type: (msg as any).attachment_type
         }));
 
         setMessages(formattedMessages);
@@ -462,17 +475,42 @@ export default function MessagesPage() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || !currentUserId) return;
+  const handleSendMessage = async (content: string, file?: File) => {
+    if ((!content.trim() && !file) || !selectedConversation || !currentUserId) return;
 
     try {
+      let attachmentUrl: string | null = null;
+      let attachmentType: string | null = null;
+
+      // Upload file if provided
+      if (file) {
+        setUploading(true);
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${currentUserId}/${Date.now()}.${fileExt}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('message-attachments')
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('message-attachments')
+          .getPublicUrl(fileName);
+
+        attachmentUrl = urlData.publicUrl;
+        attachmentType = file.type;
+      }
+
       const { data: newMsg, error } = await supabase
         .from('messages')
         .insert({
           conversation_id: selectedConversation.id,
           sender_id: currentUserId,
-          content: newMessage.trim(),
-        } as TablesInsert<'messages'>)
+          content: content.trim() || (file ? '' : ''),
+          attachment_url: attachmentUrl,
+          attachment_type: attachmentType,
+        } as any)
         .select()
         .single();
 
@@ -485,21 +523,26 @@ export default function MessagesPage() {
           sender_id: newMsg.sender_id,
           content: newMsg.content,
           created_at: newMsg.created_at || new Date().toISOString(),
-          read: true
+          read: true,
+          attachment_url: (newMsg as any).attachment_url,
+          attachment_type: (newMsg as any).attachment_type
         };
 
         setMessages([...messages, message]);
         setNewMessage('');
 
+        const lastMessageText = content.trim() || (file ? `📎 ${file.name}` : '');
         setConversations(conversations.map(conv => 
           conv.id === selectedConversation.id 
-            ? { ...conv, last_message: newMessage.trim(), last_message_time: 'Just now' }
+            ? { ...conv, last_message: lastMessageText, last_message_time: 'Just now' }
             : conv
         ));
       }
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -615,8 +658,39 @@ export default function MessagesPage() {
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      handleSendMessage(newMessage, selectedFile || undefined);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('File size must be less than 10MB');
+        return;
+      }
+      setSelectedFile(file);
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => setPreviewUrl(e.target?.result as string);
+        reader.readAsDataURL(file);
+      } else {
+        setPreviewUrl(null);
+      }
+    }
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSendWithFile = () => {
+    handleSendMessage(newMessage, selectedFile || undefined);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const formatTimeAgo = (timestamp: string) => {
@@ -951,7 +1025,37 @@ export default function MessagesPage() {
                                     : 'bg-muted'
                                 }`}
                               >
-                                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                                {/* Attachment Display */}
+                                {message.attachment_url && (
+                                  <div className="mb-2">
+                                    {message.attachment_type?.startsWith('image/') ? (
+                                      <a href={message.attachment_url} target="_blank" rel="noopener noreferrer">
+                                        <img 
+                                          src={message.attachment_url} 
+                                          alt="Attachment" 
+                                          className="max-w-full max-h-48 rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                        />
+                                      </a>
+                                    ) : (
+                                      <a 
+                                        href={message.attachment_url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className={`flex items-center gap-2 p-2 rounded-lg ${
+                                          message.sender_id === currentUserId 
+                                            ? 'bg-white/20 hover:bg-white/30' 
+                                            : 'bg-background hover:bg-accent'
+                                        } transition-colors`}
+                                      >
+                                        <FileText className="h-4 w-4 flex-shrink-0" />
+                                        <span className="text-sm truncate">Attachment</span>
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                                {message.content && (
+                                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                                )}
                               </div>
                               <div className="flex items-center gap-1 mt-1">
                                 <span className="text-xs text-muted-foreground">
@@ -978,7 +1082,43 @@ export default function MessagesPage() {
 
                 {/* Message Input */}
                 <div className="p-4 border-t bg-card">
+                  {/* File Preview */}
+                  {selectedFile && (
+                    <div className="mb-3 p-3 bg-muted rounded-lg flex items-center gap-3">
+                      {previewUrl && selectedFile.type.startsWith('image/') ? (
+                        <img src={previewUrl} alt="Preview" className="w-12 h-12 object-cover rounded-md" />
+                      ) : (
+                        <div className="w-12 h-12 bg-primary/10 rounded-md flex items-center justify-center">
+                          <FileText className="h-6 w-6 text-primary" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                        <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" onClick={removeFile} className="h-8 w-8">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                   <div className="flex items-end gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="flex-shrink-0"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </Button>
                     <div className="flex-1">
                       <Input
                         placeholder="Type a message..."
@@ -988,11 +1128,15 @@ export default function MessagesPage() {
                       />
                     </div>
                     <Button 
-                      onClick={handleSendMessage}
-                      disabled={!newMessage.trim()}
+                      onClick={handleSendWithFile}
+                      disabled={(!newMessage.trim() && !selectedFile) || uploading}
                       className="flex-shrink-0"
                     >
-                      <Send className="h-4 w-4" />
+                      {uploading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>

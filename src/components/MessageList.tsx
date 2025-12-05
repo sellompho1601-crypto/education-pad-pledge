@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Check, CheckCheck, MessageSquare } from 'lucide-react';
+import { Check, CheckCheck, MessageSquare, Download, FileText, Image as ImageIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface Message {
   id: string;
@@ -10,6 +11,8 @@ interface Message {
   created_at: string;
   sender_name?: string;
   read?: boolean;
+  attachment_url?: string | null;
+  attachment_type?: string | null;
 }
 
 interface MessageListProps {
@@ -23,6 +26,19 @@ const MessageList = ({ messages, currentUserId }: MessageListProps) => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const isImageAttachment = (type: string | null | undefined) => {
+    return type?.startsWith('image/');
+  };
+
+  const getFileName = (url: string) => {
+    try {
+      const parts = url.split('/');
+      return decodeURIComponent(parts[parts.length - 1].split('?')[0]);
+    } catch {
+      return 'attachment';
+    }
+  };
 
   if (messages.length === 0) {
     return (
@@ -49,6 +65,8 @@ const MessageList = ({ messages, currentUserId }: MessageListProps) => {
       <div className="p-6 space-y-6">
         {messages.map((message) => {
           const isOwnMessage = message.sender_id === currentUserId;
+          const hasAttachment = message.attachment_url;
+          const isImage = isImageAttachment(message.attachment_type);
           
           return (
             <div
@@ -81,9 +99,49 @@ const MessageList = ({ messages, currentUserId }: MessageListProps) => {
                       : 'bg-white text-slate-800 rounded-bl-md border border-slate-200 shadow-slate-100 hover:shadow-slate-200'
                   } group-hover:scale-[1.02]`}
                 >
-                  <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                    {message.content}
-                  </p>
+                  {/* Attachment */}
+                  {hasAttachment && (
+                    <div className="mb-2">
+                      {isImage ? (
+                        <a 
+                          href={message.attachment_url!} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="block"
+                        >
+                          <img 
+                            src={message.attachment_url!} 
+                            alt="Attachment" 
+                            className="max-w-full max-h-64 rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                          />
+                        </a>
+                      ) : (
+                        <a 
+                          href={message.attachment_url!} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className={`flex items-center gap-2 p-2 rounded-lg ${
+                            isOwnMessage 
+                              ? 'bg-white/20 hover:bg-white/30' 
+                              : 'bg-slate-100 hover:bg-slate-200'
+                          } transition-colors`}
+                        >
+                          <FileText className="h-5 w-5 flex-shrink-0" />
+                          <span className="text-sm truncate flex-1">
+                            {getFileName(message.attachment_url!)}
+                          </span>
+                          <Download className="h-4 w-4 flex-shrink-0" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Text Content */}
+                  {message.content && (
+                    <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                      {message.content}
+                    </p>
+                  )}
                   
                   {/* Message Tail */}
                   <div
