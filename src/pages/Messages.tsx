@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -169,6 +169,40 @@ export default function MessagesPage() {
     };
   }, [currentUserEntityId, currentUserId, conversations]);
 
+  // Real-time subscription for profile updates (when users get verified)
+  useEffect(() => {
+    const channel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+        },
+        async (payload) => {
+          const updatedProfile = payload.new as Tables<'profiles'>;
+          // If a profile's verification status changed to verified, refresh the verified users list
+          if (updatedProfile.verification_status === 'verified') {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('user_type')
+              .eq('id', currentUserId)
+              .single();
+            
+            if (profile) {
+              await fetchVerifiedUsers(profile.user_type);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
+
   useEffect(() => {
     if (selectedConversation) {
       fetchMessages(selectedConversation.id);
@@ -225,8 +259,10 @@ export default function MessagesPage() {
 
   const fetchVerifiedUsers = async (userType: string) => {
     try {
+      console.log('Fetching verified users for userType:', userType);
+      
       if (userType === 'institution') {
-        // Fetch investors with their profile data using a join
+        // Institutions see investors - fetch investors with their profile data using a join
         const { data: investors, error } = await supabase
           .from('investors')
           .select(`
@@ -245,6 +281,8 @@ export default function MessagesPage() {
           return;
         }
 
+        console.log('Fetched investors:', investors);
+
         if (investors) {
           const verifiedInvestors: VerifiedUser[] = investors
             .filter((inv: any) => inv.profiles?.verification_status === 'verified')
@@ -253,10 +291,11 @@ export default function MessagesPage() {
               name: inv.company_name || inv.profiles?.full_name || inv.investor_type,
               type: inv.investor_type
             }));
+          console.log('Verified investors:', verifiedInvestors);
           setVerifiedUsers(verifiedInvestors);
         }
       } else if (userType === 'investor') {
-        // Fetch institutions with their profile data using a join
+        // Investors see institutions - fetch institutions with their profile data using a join
         const { data: institutions, error } = await supabase
           .from('institutions')
           .select(`
@@ -275,6 +314,8 @@ export default function MessagesPage() {
           return;
         }
 
+        console.log('Fetched institutions:', institutions);
+
         if (institutions) {
           const verifiedInstitutions: VerifiedUser[] = institutions
             .filter((inst: any) => inst.profiles?.verification_status === 'verified')
@@ -283,6 +324,7 @@ export default function MessagesPage() {
               name: inst.institution_name,
               type: `${inst.city}, ${inst.country}`
             }));
+          console.log('Verified institutions:', verifiedInstitutions);
           setVerifiedUsers(verifiedInstitutions);
         }
       }
@@ -801,6 +843,9 @@ export default function MessagesPage() {
                         <DialogTitle>
                           Start New Conversation
                         </DialogTitle>
+                        <DialogDescription>
+                          Select a verified {role === 'institution' ? 'investor' : 'institution'} to start messaging.
+                        </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div className="relative">
