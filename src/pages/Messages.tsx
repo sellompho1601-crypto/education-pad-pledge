@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
+import { formatDistanceToNow } from 'date-fns';
 import { 
   MessageSquare, 
   Send, 
@@ -37,6 +39,8 @@ import { InstitutionSidebar } from '@/components/dashboard/InstitutionSidebar';
 import { InvestorSidebar } from '@/components/dashboard/InvestorSidebar';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
+import { useTypingIndicator } from '@/hooks/useTypingIndicator';
+import TypingIndicator from '@/components/TypingIndicator';
 
 interface Message {
   id: string;
@@ -45,6 +49,7 @@ interface Message {
   content: string;
   created_at: string;
   read: boolean;
+  read_at?: string | null;
   attachment_url?: string | null;
   attachment_type?: string | null;
 }
@@ -86,9 +91,17 @@ export default function MessagesPage() {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const selectedConversationRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Typing indicator hook
+  const { typingUsers, handleTyping, stopTyping, isAnyoneTyping } = useTypingIndicator(
+    selectedConversation?.id || null,
+    currentUserId,
+    currentUserName
+  );
 
   // Keep selectedConversationRef in sync
   useEffect(() => {
@@ -131,15 +144,17 @@ export default function MessagesPage() {
               content: newMsg.content,
               created_at: newMsg.created_at || new Date().toISOString(),
               read: newMsg.read ?? false,
+              read_at: (newMsg as any).read_at,
               attachment_url: (newMsg as any).attachment_url,
               attachment_type: (newMsg as any).attachment_type
             };
             setMessages(prev => [...prev, message]);
             
-            // Mark as read
+            // Mark as read with timestamp
+            const now = new Date().toISOString();
             await supabase
               .from('messages')
-              .update({ read: true })
+              .update({ read: true, read_at: now } as any)
               .eq('id', newMsg.id);
           } else {
             // Show notification for messages in other conversations
@@ -203,6 +218,37 @@ export default function MessagesPage() {
     };
   }, [currentUserId]);
 
+  // Real-time subscription for message read status updates
+  useEffect(() => {
+    if (!selectedConversation || !currentUserId) return;
+
+    const channel = supabase
+      .channel(`message-updates:${selectedConversation.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${selectedConversation.id}`
+        },
+        (payload) => {
+          const updatedMsg = payload.new as any;
+          // Update message read status in state
+          setMessages(prev => prev.map(msg =>
+            msg.id === updatedMsg.id
+              ? { ...msg, read: updatedMsg.read, read_at: updatedMsg.read_at }
+              : msg
+          ));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedConversation?.id, currentUserId]);
+
   useEffect(() => {
     if (selectedConversation) {
       fetchMessages(selectedConversation.id);
@@ -232,20 +278,29 @@ export default function MessagesPage() {
 
       if (!profile) return;
 
+      // Set current user name for typing indicator
+      setCurrentUserName(profile.full_name || 'User');
+
       if (profile.user_type === 'institution') {
         const { data: institution } = await supabase
           .from('institutions')
-          .select('id')
+          .select('id, institution_name')
           .eq('user_id', user.id)
           .single();
-        if (institution) setCurrentUserEntityId(institution.id);
+        if (institution) {
+          setCurrentUserEntityId(institution.id);
+          setCurrentUserName(institution.institution_name || profile.full_name || 'User');
+        }
       } else if (profile.user_type === 'investor') {
         const { data: investor } = await supabase
           .from('investors')
-          .select('id')
+          .select('id, company_name')
           .eq('user_id', user.id)
           .single();
-        if (investor) setCurrentUserEntityId(investor.id);
+        if (investor) {
+          setCurrentUserEntityId(investor.id);
+          setCurrentUserName(investor.company_name || profile.full_name || 'User');
+        }
       }
 
       await fetchConversations(user.id, profile.user_type);
@@ -495,18 +550,21 @@ export default function MessagesPage() {
           content: msg.content,
           created_at: msg.created_at || new Date().toISOString(),
           read: msg.read ?? false,
+          read_at: (msg as any).read_at,
           attachment_url: (msg as any).attachment_url,
           attachment_type: (msg as any).attachment_type
         }));
 
         setMessages(formattedMessages);
 
-        // Mark messages as read
+        // Mark messages as read with timestamp
+        const now = new Date().toISOString();
         await supabase
           .from('messages')
-          .update({ read: true })
+          .update({ read: true, read_at: now } as any)
           .eq('conversation_id', conversationId)
-          .neq('sender_id', currentUserId);
+          .neq('sender_id', currentUserId)
+          .is('read_at', null);
 
         // Update unread count in state
         setConversations(prev => prev.map(c => 
@@ -730,6 +788,7 @@ export default function MessagesPage() {
   };
 
   const handleSendWithFile = () => {
+    stopTyping();
     handleSendMessage(newMessage, selectedFile || undefined);
     setSelectedFile(null);
     setPreviewUrl(null);
@@ -1108,13 +1167,28 @@ export default function MessagesPage() {
                                   {formatTime(message.created_at)}
                                 </span>
                                 {message.sender_id === currentUserId && (
-                                  <span className="text-xs">
-                                    {message.read ? (
-                                      <CheckCheck className="h-3 w-3 text-blue-500" />
-                                    ) : (
-                                      <Check className="h-3 w-3 text-muted-foreground" />
-                                    )}
-                                  </span>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-xs cursor-default">
+                                          {message.read ? (
+                                            <CheckCheck className="h-3 w-3 text-blue-500" />
+                                          ) : (
+                                            <Check className="h-3 w-3 text-muted-foreground" />
+                                          )}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="left" className="text-xs">
+                                        {message.read && message.read_at ? (
+                                          <span>Seen {formatDistanceToNow(new Date(message.read_at), { addSuffix: true })}</span>
+                                        ) : message.read ? (
+                                          <span>Seen</span>
+                                        ) : (
+                                          <span>Sent</span>
+                                        )}
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 )}
                               </div>
                             </div>
@@ -1125,6 +1199,9 @@ export default function MessagesPage() {
                     <div ref={messagesEndRef} />
                   </div>
                 </ScrollArea>
+
+                {/* Typing Indicator */}
+                <TypingIndicator typingUsers={typingUsers} />
 
                 {/* Message Input */}
                 <div className="p-4 border-t bg-card">
@@ -1169,8 +1246,14 @@ export default function MessagesPage() {
                       <Input
                         placeholder="Type a message..."
                         value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
+                        onChange={(e) => {
+                          setNewMessage(e.target.value);
+                          if (e.target.value.trim()) {
+                            handleTyping();
+                          }
+                        }}
                         onKeyPress={handleKeyPress}
+                        onBlur={stopTyping}
                       />
                     </div>
                     <Button 
