@@ -9,21 +9,20 @@ export const useUserRole = () => {
   const [userType, setUserType] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchUserRole = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          setRole(null);
-          setLoading(false);
-          return;
-        }
+    const fetchUserRole = async (userId: string | null) => {
+      if (!userId) {
+        setRole(null);
+        setUserType(null);
+        setLoading(false);
+        return;
+      }
 
+      try {
         // First check if user has admin role in user_roles table
         const { data: adminRole } = await supabase
           .from('user_roles')
           .select('role')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('role', 'admin')
           .maybeSingle();
 
@@ -38,27 +37,60 @@ export const useUserRole = () => {
         const { data: profile } = await supabase
           .from('profiles')
           .select('user_type')
-          .eq('id', user.id)
+          .eq('id', userId)
           .maybeSingle();
 
         if (profile) {
           setUserType(profile.user_type);
-          // Check if user_type is admin (for backward compatibility)
           if (profile.user_type === 'admin') {
             setRole('admin');
           } else {
             setRole(profile.user_type as UserRole);
           }
+        } else {
+          setRole(null);
+          setUserType(null);
         }
 
         setLoading(false);
       } catch (error) {
         console.error('Error fetching user role:', error);
+        setRole(null);
+        setUserType(null);
         setLoading(false);
       }
     };
 
-    fetchUserRole();
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          setRole(null);
+          setUserType(null);
+          setLoading(false);
+        } else if (session?.user) {
+          // Defer the fetch to avoid deadlock
+          setTimeout(() => {
+            fetchUserRole(session.user.id);
+          }, 0);
+        } else {
+          setRole(null);
+          setUserType(null);
+          setLoading(false);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        fetchUserRole(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   return { role, userType, loading };
