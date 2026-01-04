@@ -21,39 +21,59 @@ const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session?.user) {
-          // Defer to avoid deadlock
-          setTimeout(async () => {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('user_type')
-              .eq('id', session.user.id)
-              .single();
-            
-            if (profile) {
-              navigate(`/dashboard/${profile.user_type}`, { replace: true });
-            }
-          }, 0);
-        }
-      }
-    );
+  const resolveDashboardPath = async (userId: string) => {
+    // Admin role takes precedence
+    const { data: adminRole, error: adminRoleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
 
-    // Check if user is already logged in
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('user_type')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profile) {
-          navigate(`/dashboard/${profile.user_type}`, { replace: true });
-        }
+    if (adminRoleError) throw adminRoleError;
+    if (adminRole) return '/dashboard/admin';
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+    if (profile?.user_type) return `/dashboard/${profile.user_type}`;
+
+    return null;
+  };
+
+  const redirectToDashboard = async (userId: string) => {
+    const path = await resolveDashboardPath(userId);
+    if (path) {
+      navigate(path, { replace: true });
+      return;
+    }
+
+    toast({
+      title: 'Account not ready',
+      description: 'We could not find your account type. Please contact support or try again later.',
+      variant: 'destructive',
+    });
+  };
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session?.user) return;
+
+      // Defer to avoid deadlocks: never call other auth methods inside callback
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setTimeout(() => {
+          redirectToDashboard(session.user.id);
+        }, 0);
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        redirectToDashboard(session.user.id);
       }
     });
 
@@ -72,21 +92,13 @@ const Login = () => {
 
       if (error) throw error;
 
+      toast({
+        title: "Login successful",
+        description: "Welcome back to PadForward!",
+      });
+
       if (data.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('user_type')
-          .eq('id', data.user.id)
-          .single();
-
-        toast({
-          title: "Login successful",
-          description: "Welcome back to PadForward!",
-        });
-
-        if (profile) {
-          navigate(`/dashboard/${profile.user_type}`);
-        }
+        await redirectToDashboard(data.user.id);
       }
     } catch (error: any) {
       toast({
