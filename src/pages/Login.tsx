@@ -22,9 +22,28 @@ const Login = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          // Defer to avoid deadlock
+          setTimeout(async () => {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('user_type')
+              .eq('id', session.user.id)
+              .single();
+            
+            if (profile) {
+              navigate(`/dashboard/${profile.user_type}`, { replace: true });
+            }
+          }, 0);
+        }
+      }
+    );
+
     // Check if user is already logged in
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -33,11 +52,12 @@ const Login = () => {
           .single();
         
         if (profile) {
-          navigate(`/dashboard/${profile.user_type}`);
+          navigate(`/dashboard/${profile.user_type}`, { replace: true });
         }
       }
-    };
-    checkUser();
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
