@@ -347,6 +347,8 @@ export type Database = {
         Args: { conv_id: string }
         Returns: boolean
       }
+      is_verified_institution: { Args: { _user_id: string }; Returns: boolean }
+      is_verified_investor: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "institution" | "investor"
