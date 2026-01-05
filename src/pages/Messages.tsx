@@ -265,11 +265,21 @@ export default function MessagesPage() {
 
   const initializeData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      // If the browser blocks storage (common in embedded/iframe previews), session refresh can fail.
+      // In that case, treat it as logged out and send the user back to Login.
+      if (sessionError || !session?.user) {
+        await supabase.auth.signOut();
+        setLoading(false);
+        navigate('/login');
+        return;
+      }
+
+      const user = session.user;
 
       setCurrentUserId(user.id);
-      
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -681,8 +691,14 @@ export default function MessagesPage() {
 
   const handleStartNewChat = async (targetUser: VerifiedUser) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        await supabase.auth.signOut();
+        toast.error('Your session expired. Please log in again.');
+        navigate('/login');
+        return;
+      }
 
       const { data: profile } = await supabase
         .from('profiles')
