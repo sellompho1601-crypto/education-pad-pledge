@@ -702,11 +702,16 @@ export default function MessagesPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('user_type')
+        .select('user_type, verification_status')
         .eq('id', user.id)
         .single();
 
       if (!profile) return;
+
+      if (profile.verification_status !== 'verified') {
+        toast.error('Your account must be verified to start a new conversation.');
+        return;
+      }
 
       let institutionId: string;
       let investorId: string;
@@ -731,13 +736,15 @@ export default function MessagesPage() {
         institutionId = targetUser.id;
       }
 
-      // Check if conversation already exists
-      const { data: existingConv } = await supabase
+      // Check if conversation already exists (avoid 406 noise when no rows)
+      const { data: existingConv, error: existingConvError } = await supabase
         .from('conversations')
         .select('*')
         .eq('institution_id', institutionId)
         .eq('investor_id', investorId)
-        .single();
+        .maybeSingle();
+
+      if (existingConvError) throw existingConvError;
 
       if (existingConv) {
         const existingConversation = conversations.find(c => c.id === existingConv.id);
