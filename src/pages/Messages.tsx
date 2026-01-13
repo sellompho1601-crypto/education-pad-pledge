@@ -756,17 +756,26 @@ export default function MessagesPage() {
         return;
       }
 
-      // Create new conversation
-      const { data: newConv, error } = await supabase
+      // Create new conversation (avoid returning row on insert to reduce RLS edge-cases)
+      const { error: insertError } = await supabase
         .from('conversations')
         .insert({
           investor_id: investorId,
-          institution_id: institutionId
-        } as TablesInsert<'conversations'>)
-        .select()
-        .single();
+          institution_id: institutionId,
+        } as TablesInsert<'conversations'>);
 
-      if (error) throw error;
+      if (insertError) throw insertError;
+
+      // Fetch the created conversation via normal SELECT policy
+      const { data: newConv, error: fetchNewError } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('institution_id', institutionId)
+        .eq('investor_id', investorId)
+        .maybeSingle();
+
+      if (fetchNewError) throw fetchNewError;
+
 
       if (newConv) {
         await fetchConversations(user.id, profile.user_type);
