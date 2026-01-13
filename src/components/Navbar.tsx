@@ -33,22 +33,6 @@ export const Navbar = () => {
             </span>
           </Link>
           
-          <div className="hidden md:flex items-center gap-6">
-            {role && (
-              <Link 
-                to={getDashboardLink()} 
-                className="text-foreground hover:text-primary transition-colors flex items-center gap-2"
-              >
-                <LayoutDashboard className="w-4 h-4" />
-                Dashboard
-              </Link>
-            )}
-            {role && (
-              <Link to="/messages" className="text-foreground hover:text-primary transition-colors">
-                Messages
-              </Link>
-            )}
-          </div>
           
           <div className="flex items-center gap-3">
             {!loading && !role ? (
