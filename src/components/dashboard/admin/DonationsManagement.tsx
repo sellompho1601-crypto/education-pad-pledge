@@ -18,8 +18,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Search, Eye, DollarSign, Building2, User, MapPin, Mail, Calendar, TrendingUp, Sparkles } from "lucide-react";
+import { Search, Eye, DollarSign, Building2, User, MapPin, Mail, Calendar, TrendingUp, Sparkles, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 
 interface Donation {
@@ -62,6 +69,7 @@ export const DonationsManagement = () => {
   const [selectedDonation, setSelectedDonation] = useState<DonationDetails | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -140,6 +148,49 @@ export const DonationsManagement = () => {
       });
     }
   };
+
+  const handleUpdateStatus = async (donationId: string, newStatus: string) => {
+    setUpdatingStatus(true);
+    try {
+      const { error } = await supabase
+        .from('donations')
+        .update({ status: newStatus })
+        .eq('id', donationId);
+
+      if (error) throw error;
+
+      // Update local state
+      setDonations(prev => prev.map(d => d.id === donationId ? { ...d, status: newStatus } : d));
+      if (selectedDonation && selectedDonation.id === donationId) {
+        setSelectedDonation({ ...selectedDonation, status: newStatus });
+      }
+
+      toast({
+        title: "Status Updated",
+        description: `Donation status changed to "${newStatus}"`,
+      });
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update donation status",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-donations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, () => {
+        fetchDonations();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -380,7 +431,7 @@ export const DonationsManagement = () => {
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700">Status</label>
+                  <label className="text-sm font-semibold text-slate-700">Current Status</label>
                   <div>
                     <Badge className={`text-lg px-3 py-1 ${getStatusColor(selectedDonation.status)}`}>
                       {selectedDonation.status}
@@ -401,6 +452,34 @@ export const DonationsManagement = () => {
                   <p className="font-medium text-slate-900">
                     {format(new Date(selectedDonation.created_at), "PPP 'at' hh:mm a")}
                   </p>
+                </div>
+              </div>
+
+              {/* Update Status Section */}
+              <div className="p-4 bg-purple-50 rounded-xl border-2 border-purple-200">
+                <h3 className="font-semibold text-purple-900 flex items-center gap-2 mb-3">
+                  <RefreshCw className="h-4 w-4" />
+                  Update Donation Status
+                </h3>
+                <div className="flex items-center gap-4">
+                  <Select
+                    defaultValue={selectedDonation.status}
+                    onValueChange={(value) => handleUpdateStatus(selectedDonation.id, value)}
+                    disabled={updatingStatus}
+                  >
+                    <SelectTrigger className="w-[200px] bg-white">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {updatingStatus && (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+                  )}
                 </div>
               </div>
 

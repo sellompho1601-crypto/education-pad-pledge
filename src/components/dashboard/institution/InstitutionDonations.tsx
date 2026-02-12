@@ -5,6 +5,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   Building2, 
   MapPin, 
@@ -22,8 +28,12 @@ import {
   Sparkles,
   Target,
   BarChart3,
-  MessageSquare
+  MessageSquare,
+  Eye,
+  DollarSign,
+  User
 } from 'lucide-react';
+import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 
@@ -71,6 +81,18 @@ interface DonationStats {
   totalPads: number;
 }
 
+interface DonationDetails extends DbDonation {
+  investor?: {
+    company_name: string | null;
+    investor_type: string;
+    user_id: string;
+  };
+  investor_profile?: {
+    full_name: string | null;
+    email: string;
+  };
+}
+
 export function InstitutionDonations() {
   const [investors, setInvestors] = useState<InvestorWithProfile[]>([]);
   const [donations, setDonations] = useState<DbDonation[]>([]);
@@ -79,6 +101,8 @@ export function InstitutionDonations() {
   const [selectedInvestor, setSelectedInvestor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [requestSent, setRequestSent] = useState<string | null>(null);
+  const [selectedDonation, setSelectedDonation] = useState<DonationDetails | null>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [stats, setStats] = useState<DonationStats>({
     total: 0,
     pending: 0,
@@ -105,6 +129,24 @@ export function InstitutionDonations() {
       setFilteredInvestors(investors);
     }
   }, [searchQuery, investors]);
+
+  // Realtime subscription for donations updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('institution-donations')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'donations' },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -245,6 +287,49 @@ export function InstitutionDonations() {
       });
     } finally {
       setSelectedInvestor(null);
+    }
+  };
+
+  const handleViewDonationDetails = async (donation: DbDonation) => {
+    try {
+      const { data: investor } = await supabase
+        .from('investors')
+        .select('company_name, investor_type, user_id')
+        .eq('id', donation.investor_id)
+        .single();
+
+      let investorProfile = null;
+      if (investor?.user_id) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', investor.user_id)
+          .single();
+        investorProfile = data;
+      }
+
+      setSelectedDonation({
+        ...donation,
+        investor: investor || undefined,
+        investor_profile: investorProfile || undefined,
+      });
+      setShowDetailsDialog(true);
+    } catch (error) {
+      console.error('Error fetching donation details:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load donation details',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return 'bg-green-100 text-green-800 border-green-200';
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'cancelled': case 'failed': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -555,7 +640,8 @@ export function InstitutionDonations() {
                 {donations.map((donation) => (
                   <div
                     key={donation.id}
-                    className="flex items-center justify-between p-5 border-2 rounded-xl hover:bg-blue-50/50 hover:border-blue-200 transition-all duration-200 group"
+                    className="flex items-center justify-between p-5 border-2 rounded-xl hover:bg-blue-50/50 hover:border-blue-200 transition-all duration-200 group cursor-pointer"
+                    onClick={() => handleViewDonationDetails(donation)}
                   >
                     <div className="space-y-3 flex-1">
                       <div className="flex items-center gap-4">
@@ -590,6 +676,15 @@ export function InstitutionDonations() {
                         </p>
                       )}
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-300 hover:bg-slate-100 transition-colors"
+                      onClick={(e) => { e.stopPropagation(); handleViewDonationDetails(donation); }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Details
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -597,6 +692,105 @@ export function InstitutionDonations() {
           </CardContent>
         </Card>
       )}
+
+      {/* Donation Details Dialog */}
+      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
+        <DialogContent className="max-w-2xl bg-gradient-to-b from-white to-slate-50/50 border-2">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Package className="h-6 w-6 text-blue-600" />
+              </div>
+              Donation Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedDonation && (
+            <div className="space-y-6 py-4">
+              {/* Amount & Status */}
+              <div className="grid grid-cols-2 gap-6 p-4 bg-slate-50 rounded-xl border-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Amount
+                  </label>
+                  <p className="text-2xl font-bold text-green-600">
+                    {Number(selectedDonation.amount).toLocaleString()} pads
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Status</label>
+                  <div>
+                    <Badge className={`text-lg px-3 py-1 ${getStatusColor(selectedDonation.status)}`}>
+                      {selectedDonation.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Donation Date
+                  </label>
+                  <p className="font-medium text-slate-900">
+                    {format(new Date(selectedDonation.donation_date), "PPP 'at' hh:mm a")}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700">Currency</label>
+                  <p className="font-medium text-slate-900">{selectedDonation.currency}</p>
+                </div>
+              </div>
+
+              {/* Message */}
+              {selectedDonation.message && (
+                <div className="p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
+                  <h3 className="font-semibold text-blue-900 flex items-center gap-2 mb-3">
+                    <MessageSquare className="h-4 w-4" />
+                    Donor Message
+                  </h3>
+                  <p className="text-blue-800 p-3 bg-white rounded-lg border border-blue-100">
+                    {selectedDonation.message}
+                  </p>
+                </div>
+              )}
+
+              {/* Donor Info */}
+              <div className="p-4 bg-slate-50 rounded-xl border-2">
+                <h3 className="font-semibold text-slate-900 flex items-center gap-2 mb-4">
+                  <User className="h-5 w-5 text-blue-600" />
+                  Donor Information
+                </h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                    <span className="text-sm font-medium text-slate-700">Name</span>
+                    <span className="font-semibold text-slate-900">
+                      {selectedDonation.investor_profile?.full_name || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                    <span className="text-sm font-medium text-slate-700">Company</span>
+                    <span className="font-semibold text-slate-900">
+                      {selectedDonation.investor?.company_name || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                    <span className="text-sm font-medium text-slate-700">Type</span>
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 capitalize">
+                      {selectedDonation.investor?.investor_type || 'N/A'}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                    <span className="text-sm font-medium text-slate-700">Email</span>
+                    <span className="font-semibold text-slate-900 text-sm">
+                      {selectedDonation.investor_profile?.email || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
