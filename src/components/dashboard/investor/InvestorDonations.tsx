@@ -660,7 +660,7 @@ export const InvestorDonations = () => {
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-3xl bg-gradient-to-b from-white to-slate-50/50">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-gradient-to-b from-white to-slate-50/50">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl">
               <Package className="h-6 w-6 text-primary" />
