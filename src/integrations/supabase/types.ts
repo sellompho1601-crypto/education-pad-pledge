@@ -56,6 +56,60 @@ export type Database = {
           },
         ]
       }
+      donation_requests: {
+        Row: {
+          created_at: string
+          id: string
+          institution_id: string
+          investor_id: string
+          message: string | null
+          product_type: string
+          quantity: number
+          status: string
+          updated_at: string
+          urgency: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          institution_id: string
+          investor_id: string
+          message?: string | null
+          product_type: string
+          quantity: number
+          status?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          institution_id?: string
+          investor_id?: string
+          message?: string | null
+          product_type?: string
+          quantity?: number
+          status?: string
+          updated_at?: string
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "donation_requests_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "institutions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "donation_requests_investor_id_fkey"
+            columns: ["investor_id"]
+            isOneToOne: false
+            referencedRelation: "investors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       donations: {
         Row: {
           amount: number
