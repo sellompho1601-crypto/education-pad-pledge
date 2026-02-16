@@ -15,6 +15,7 @@ import { InvestorsManagement } from '@/components/dashboard/admin/InvestorsManag
 import { SettingsManagement } from '@/components/dashboard/admin/SettingsManagement';
 import { DonationsManagement } from '@/components/dashboard/admin/DonationsManagement';
 import { CertificatesManagement } from '@/components/dashboard/admin/CertificatesManagement';
+import { DonationRequestsManagement } from '@/components/dashboard/admin/DonationRequestsManagement';
 import { Badge } from '@/components/ui/badge';
 
 export default function AdminDashboard() {
@@ -337,6 +338,8 @@ export default function AdminDashboard() {
         return <DonationsManagement />;
       case 'certificates':
         return <CertificatesManagement />;
+      case 'requests':
+        return <DonationRequestsManagement />;
       default:
         return null;
     }
