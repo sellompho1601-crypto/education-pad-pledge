@@ -45,6 +45,14 @@ export const InstitutionsManagement = () => {
 
   useEffect(() => {
     fetchInstitutions();
+
+    const channel = supabase
+      .channel('admin-institutions-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'institutions' }, () => fetchInstitutions())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchInstitutions())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchInstitutions = async () => {

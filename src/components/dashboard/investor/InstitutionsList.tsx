@@ -25,6 +25,13 @@ export const InstitutionsList = () => {
 
   useEffect(() => {
     fetchInstitutions();
+
+    const channel = supabase
+      .channel('investor-institutions-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'institutions' }, () => fetchInstitutions())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchInstitutions = async () => {

@@ -26,6 +26,14 @@ export const InvestorProfile = () => {
 
   useEffect(() => {
     fetchProfile();
+
+    const channel = supabase
+      .channel('investor-profile-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchProfile())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'investors' }, () => fetchProfile())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchProfile = async () => {

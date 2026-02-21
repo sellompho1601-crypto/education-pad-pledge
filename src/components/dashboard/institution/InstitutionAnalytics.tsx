@@ -114,6 +114,14 @@ export default function InstitutionAnalytics() {
       }
     };
     load();
+
+    const channel = supabase
+      .channel('institution-analytics-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => load())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const metrics = useMemo(() => {

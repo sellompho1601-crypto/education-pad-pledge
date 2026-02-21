@@ -39,6 +39,16 @@ export default function InvestorDashboard() {
   useEffect(() => {
     if (role === 'investor') {
       fetchDashboardData();
+
+      const channel = supabase
+        .channel('investor-dashboard-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => fetchDashboardData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => fetchDashboardData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchDashboardData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, () => fetchDashboardData())
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
     }
   }, [role]);
 
