@@ -64,6 +64,14 @@ export default function InstitutionReports() {
 
   useEffect(() => {
     fetchReportData();
+
+    const channel = supabase
+      .channel('institution-reports-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, () => fetchReportData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => fetchReportData())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [dateRange]);
 
   const fetchReportData = async () => {

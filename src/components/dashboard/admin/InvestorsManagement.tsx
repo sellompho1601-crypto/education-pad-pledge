@@ -42,6 +42,14 @@ export const InvestorsManagement = () => {
 
   useEffect(() => {
     fetchInvestors();
+
+    const channel = supabase
+      .channel('admin-investors-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'investors' }, () => fetchInvestors())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchInvestors())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchInvestors = async () => {

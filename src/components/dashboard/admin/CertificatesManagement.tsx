@@ -32,6 +32,15 @@ export const CertificatesManagement = () => {
 
   useEffect(() => {
     fetchCertificates();
+
+    const channel = supabase
+      .channel('admin-certificates-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'institutions' }, () => fetchCertificates())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'investors' }, () => fetchCertificates())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchCertificates())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchCertificates = async () => {

@@ -60,6 +60,13 @@ export default function InstitutionProfile() {
       }
     };
     load();
+
+    const channel = supabase
+      .channel('institution-profile-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'institutions' }, () => load())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const updateField = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

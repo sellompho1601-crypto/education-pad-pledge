@@ -47,6 +47,13 @@ export default function InvestorReports() {
 
   useEffect(() => {
     fetchReportData();
+
+    const channel = supabase
+      .channel('investor-reports-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, () => fetchReportData())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const fetchReportData = async () => {

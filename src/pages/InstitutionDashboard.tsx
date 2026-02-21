@@ -40,6 +40,16 @@ export default function InstitutionDashboard() {
   useEffect(() => {
     if (role === 'institution') {
       fetchDashboardData();
+
+      const channel = supabase
+        .channel('institution-dashboard-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => fetchDashboardData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => fetchDashboardData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchDashboardData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, () => fetchDashboardData())
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
     }
   }, [role]);
 
