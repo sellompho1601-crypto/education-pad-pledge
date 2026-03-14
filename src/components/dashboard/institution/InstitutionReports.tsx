@@ -445,7 +445,7 @@ export default function InstitutionReports() {
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                onClick={fetchReportData}
+                onClick={() => fetchReportData()}
                 disabled={loading}
                 className="border-2 hover:bg-white transition-colors"
               >
