@@ -92,6 +92,10 @@ export const InvestorDonations = () => {
   const [activeTab, setActiveTab] = useState<'available' | 'history' | 'requests'>('available');
   const [investorId, setInvestorId] = useState<string | null>(null);
   const [donationRequests, setDonationRequests] = useState<DonationRequest[]>([]);
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<DonationRequest | null>(null);
+  const [responseMessage, setResponseMessage] = useState("");
+  const [respondingToRequest, setRespondingToRequest] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -291,67 +295,52 @@ export const InvestorDonations = () => {
     }
   };
 
-  const handleAcceptRequest = async (request: DonationRequest) => {
+  const handleOpenRequestDialog = (request: DonationRequest) => {
+    setSelectedRequest(request);
+    setResponseMessage("");
+    setShowRequestDialog(true);
+  };
+
+  const handleRespondToRequest = async (action: 'accepted' | 'declined') => {
+    if (!selectedRequest) return;
+    setRespondingToRequest(true);
     try {
-      // Update request status
       const { error } = await supabase
         .from('donation_requests' as any)
-        .update({ status: 'accepted' } as any)
-        .eq('id', request.id);
+        .update({ status: action } as any)
+        .eq('id', selectedRequest.id);
 
       if (error) throw error;
 
-      // Get institution user_id for notification
       const { data: inst } = await supabase
         .from('institutions')
         .select('user_id, institution_name')
-        .eq('id', request.institution_id)
+        .eq('id', selectedRequest.institution_id)
         .single();
 
       if (inst) {
+        const reasonText = responseMessage ? ` Reason: "${responseMessage}"` : '';
         await supabase.from('notifications').insert({
           user_id: inst.user_id,
-          title: 'Donation Request Accepted',
-          message: `Your request for ${request.quantity} ${request.product_type} has been accepted by a donor.`,
+          title: action === 'accepted' ? 'Donation Request Accepted' : 'Donation Request Declined',
+          message: `Your request for ${selectedRequest.quantity} ${selectedRequest.product_type} has been ${action} by a donor.${reasonText}`,
           type: 'donation_request',
         });
       }
 
-      toast({ title: 'Request Accepted', description: `You accepted the request for ${request.quantity} ${request.product_type}.` });
+      toast({
+        title: action === 'accepted' ? 'Request Accepted' : 'Request Declined',
+        description: action === 'accepted'
+          ? `You accepted the request for ${selectedRequest.quantity} ${selectedRequest.product_type}.`
+          : `You declined the request for ${selectedRequest.quantity} ${selectedRequest.product_type}.`,
+      });
+
+      setShowRequestDialog(false);
       fetchData();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to accept request', variant: 'destructive' });
-    }
-  };
-
-  const handleDeclineRequest = async (request: DonationRequest) => {
-    try {
-      const { error } = await supabase
-        .from('donation_requests' as any)
-        .update({ status: 'declined' } as any)
-        .eq('id', request.id);
-
-      if (error) throw error;
-
-      const { data: inst } = await supabase
-        .from('institutions')
-        .select('user_id')
-        .eq('id', request.institution_id)
-        .single();
-
-      if (inst) {
-        await supabase.from('notifications').insert({
-          user_id: inst.user_id,
-          title: 'Donation Request Declined',
-          message: `Your request for ${request.quantity} ${request.product_type} has been declined.`,
-          type: 'donation_request',
-        });
-      }
-
-      toast({ title: 'Request Declined', description: 'The request has been declined.' });
-      fetchData();
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to decline request', variant: 'destructive' });
+      toast({ title: 'Error', description: error.message || `Failed to ${action} request`, variant: 'destructive' });
+    } finally {
+      setRespondingToRequest(false);
     }
   };
 
@@ -650,24 +639,25 @@ export const InvestorDonations = () => {
                         </div>
 
                         {request.status === 'pending' && (
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => handleAcceptRequest(request)}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Accept
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeclineRequest(request)}
-                            >
-                              <XCircle className="h-4 w-4 mr-1" />
-                              Decline
-                            </Button>
-                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenRequestDialog(request)}
+                            className="border-primary text-primary hover:bg-primary/10"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
+                        )}
+                        {request.status !== 'pending' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleOpenRequestDialog(request)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
                         )}
                       </div>
 
@@ -850,7 +840,136 @@ export const InvestorDonations = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Donate Dialog */}
+      {/* Request Review Dialog */}
+      <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-gradient-to-b from-white to-slate-50/50 border-2">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <ClipboardList className="h-6 w-6 text-primary" />
+              </div>
+              Review Donation Request
+            </DialogTitle>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="space-y-6 py-4">
+              {/* Request Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-muted/50 rounded-xl border-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Product Type</label>
+                  <p className="text-xl font-bold capitalize">{selectedRequest.product_type}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Quantity Requested</label>
+                  <p className="text-xl font-bold">{selectedRequest.quantity.toLocaleString()}</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Urgency</label>
+                  <div>{getUrgencyBadge(selectedRequest.urgency)}</div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-muted-foreground">Current Status</label>
+                  <Badge variant={getStatusColor(selectedRequest.status)} className="flex items-center gap-1 w-fit">
+                    {selectedRequest.status === 'pending' && <Clock className="h-3 w-3" />}
+                    {selectedRequest.status === 'accepted' && <CheckCircle className="h-3 w-3" />}
+                    {selectedRequest.status === 'declined' && <XCircle className="h-3 w-3" />}
+                    {selectedRequest.status}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Institution Info */}
+              <div className="p-5 bg-muted/30 rounded-xl border-2 space-y-3">
+                <h3 className="font-semibold flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" /> Requesting Institution
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Institution Name</label>
+                    <p className="font-semibold">{selectedRequest.institution_name || 'Unknown'}</p>
+                  </div>
+                  {selectedRequest.institution_city && (
+                    <div className="space-y-1">
+                      <label className="text-sm text-muted-foreground">Location</label>
+                      <p className="font-semibold flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {selectedRequest.institution_city}, {selectedRequest.institution_country}
+                      </p>
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <label className="text-sm text-muted-foreground">Date Requested</label>
+                    <p className="font-medium flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      {format(new Date(selectedRequest.created_at), "PPP 'at' hh:mm a")}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Institution's Message */}
+              {selectedRequest.message && (
+                <div className="p-5 bg-blue-50/50 rounded-xl border-2 border-blue-200">
+                  <h3 className="font-semibold text-blue-900 flex items-center gap-2 mb-3">
+                    <AlertCircle className="h-4 w-4" /> Institution's Message
+                  </h3>
+                  <p className="p-3 bg-white rounded-lg border text-sm">{selectedRequest.message}</p>
+                </div>
+              )}
+
+              {/* Response Section - only for pending requests */}
+              {selectedRequest.status === 'pending' && (
+                <div className="space-y-4 p-5 bg-muted/20 rounded-xl border-2 border-primary/20">
+                  <h3 className="font-semibold flex items-center gap-2">
+                    <Send className="h-4 w-4 text-primary" /> Your Response
+                  </h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="response-message">Explanation / Message (Optional)</Label>
+                    <Textarea
+                      id="response-message"
+                      placeholder="Provide a reason for your decision (e.g., 'Happy to help! Will ship within 2 weeks.' or 'Unable to fulfill at this time due to...')"
+                      value={responseMessage}
+                      onChange={(e) => setResponseMessage(e.target.value)}
+                      rows={4}
+                      className="border-2"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This message will be sent to the institution as part of the notification.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <Button
+                      className="flex-1 bg-green-600 hover:bg-green-700"
+                      onClick={() => handleRespondToRequest('accepted')}
+                      disabled={respondingToRequest}
+                    >
+                      {respondingToRequest ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Accept Request
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => handleRespondToRequest('declined')}
+                      disabled={respondingToRequest}
+                    >
+                      {respondingToRequest ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      ) : (
+                        <XCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Decline Request
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       <Dialog open={showDonateDialog} onOpenChange={setShowDonateDialog}>
         <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
