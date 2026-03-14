@@ -63,12 +63,13 @@ export default function InstitutionReports() {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchReportData();
+    fetchReportData(true);
 
     const channel = supabase
       .channel('institution-reports-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'donations' }, () => fetchReportData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => fetchReportData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => fetchReportData())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
