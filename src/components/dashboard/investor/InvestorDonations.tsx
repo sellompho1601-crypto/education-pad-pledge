@@ -92,6 +92,10 @@ export const InvestorDonations = () => {
   const [activeTab, setActiveTab] = useState<'available' | 'history' | 'requests'>('available');
   const [investorId, setInvestorId] = useState<string | null>(null);
   const [donationRequests, setDonationRequests] = useState<DonationRequest[]>([]);
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<DonationRequest | null>(null);
+  const [responseMessage, setResponseMessage] = useState("");
+  const [respondingToRequest, setRespondingToRequest] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
