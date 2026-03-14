@@ -74,9 +74,9 @@ export default function InstitutionReports() {
     return () => { supabase.removeChannel(channel); };
   }, [dateRange]);
 
-  const fetchReportData = async () => {
+  const fetchReportData = async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
       
       // Get current institution ID
       const { data: { user } } = await supabase.auth.getUser();
