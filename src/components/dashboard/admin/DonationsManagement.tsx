@@ -74,6 +74,21 @@ export const DonationsManagement = () => {
 
   useEffect(() => {
     fetchDonations();
+
+    const channel = supabase
+      .channel('admin-donations-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'donations' },
+        () => {
+          fetchDonations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchDonations = async () => {
