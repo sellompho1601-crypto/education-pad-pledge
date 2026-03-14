@@ -295,67 +295,52 @@ export const InvestorDonations = () => {
     }
   };
 
-  const handleAcceptRequest = async (request: DonationRequest) => {
+  const handleOpenRequestDialog = (request: DonationRequest) => {
+    setSelectedRequest(request);
+    setResponseMessage("");
+    setShowRequestDialog(true);
+  };
+
+  const handleRespondToRequest = async (action: 'accepted' | 'declined') => {
+    if (!selectedRequest) return;
+    setRespondingToRequest(true);
     try {
-      // Update request status
       const { error } = await supabase
         .from('donation_requests' as any)
-        .update({ status: 'accepted' } as any)
-        .eq('id', request.id);
+        .update({ status: action } as any)
+        .eq('id', selectedRequest.id);
 
       if (error) throw error;
 
-      // Get institution user_id for notification
       const { data: inst } = await supabase
         .from('institutions')
         .select('user_id, institution_name')
-        .eq('id', request.institution_id)
+        .eq('id', selectedRequest.institution_id)
         .single();
 
       if (inst) {
+        const reasonText = responseMessage ? ` Reason: "${responseMessage}"` : '';
         await supabase.from('notifications').insert({
           user_id: inst.user_id,
-          title: 'Donation Request Accepted',
-          message: `Your request for ${request.quantity} ${request.product_type} has been accepted by a donor.`,
+          title: action === 'accepted' ? 'Donation Request Accepted' : 'Donation Request Declined',
+          message: `Your request for ${selectedRequest.quantity} ${selectedRequest.product_type} has been ${action} by a donor.${reasonText}`,
           type: 'donation_request',
         });
       }
 
-      toast({ title: 'Request Accepted', description: `You accepted the request for ${request.quantity} ${request.product_type}.` });
+      toast({
+        title: action === 'accepted' ? 'Request Accepted' : 'Request Declined',
+        description: action === 'accepted'
+          ? `You accepted the request for ${selectedRequest.quantity} ${selectedRequest.product_type}.`
+          : `You declined the request for ${selectedRequest.quantity} ${selectedRequest.product_type}.`,
+      });
+
+      setShowRequestDialog(false);
       fetchData();
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to accept request', variant: 'destructive' });
-    }
-  };
-
-  const handleDeclineRequest = async (request: DonationRequest) => {
-    try {
-      const { error } = await supabase
-        .from('donation_requests' as any)
-        .update({ status: 'declined' } as any)
-        .eq('id', request.id);
-
-      if (error) throw error;
-
-      const { data: inst } = await supabase
-        .from('institutions')
-        .select('user_id')
-        .eq('id', request.institution_id)
-        .single();
-
-      if (inst) {
-        await supabase.from('notifications').insert({
-          user_id: inst.user_id,
-          title: 'Donation Request Declined',
-          message: `Your request for ${request.quantity} ${request.product_type} has been declined.`,
-          type: 'donation_request',
-        });
-      }
-
-      toast({ title: 'Request Declined', description: 'The request has been declined.' });
-      fetchData();
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to decline request', variant: 'destructive' });
+      toast({ title: 'Error', description: error.message || `Failed to ${action} request`, variant: 'destructive' });
+    } finally {
+      setRespondingToRequest(false);
     }
   };
 
