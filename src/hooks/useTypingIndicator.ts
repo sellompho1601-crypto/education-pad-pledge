@@ -18,7 +18,7 @@ export const useTypingIndicator = (
 ) => {
   const [typingUsers, setTypingUsers] = useState<TypingState>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
   // Clean up stale typing indicators
