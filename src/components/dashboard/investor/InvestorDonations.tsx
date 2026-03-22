@@ -165,7 +165,7 @@ export const InvestorDonations = () => {
         .order('created_at', { ascending: false });
 
       // Enrich requests with institution names
-      if (requestsData && (requestsData as any[]).length > 0) {
+      if (requestsData && requestsData.length > 0) {
         const institutionIds = [...new Set((requestsData as any[]).map((r: any) => r.institution_id))];
         const { data: instData } = await supabase
           .from('institutions')
