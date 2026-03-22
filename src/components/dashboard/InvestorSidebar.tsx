@@ -17,6 +17,7 @@ const menuItems: SidebarOption[] = [
   { icon: Building2, title: "Institutions", value: "institutions" },
   { icon: MessageSquare, title: "Messages", value: "messages" },
   { icon: BarChart3, title: "Analytics", value: "analytics" },
+  { icon: ClipboardList, title: "Reports", value: "reports" },
   { icon: Settings, title: "Profile", value: "profile" },
 ];
 
