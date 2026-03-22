@@ -159,7 +159,7 @@ export const InvestorDonations = () => {
 
       // Fetch donation requests for this investor
       const { data: requestsData } = await supabase
-        .from('donation_requests' as any)
+        .from('donation_requests')
         .select('*')
         .eq('investor_id', investor.id)
         .order('created_at', { ascending: false });
