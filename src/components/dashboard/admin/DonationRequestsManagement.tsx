@@ -128,6 +128,7 @@ export const DonationRequestsManagement = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case "admin_approved": return "bg-blue-100 text-blue-800 border-blue-200";
       case "accepted": return "bg-green-100 text-green-800 border-green-200";
       case "pending": return "bg-yellow-100 text-yellow-800 border-yellow-200";
       case "declined": return "bg-red-100 text-red-800 border-red-200";
@@ -268,7 +269,7 @@ export const DonationRequestsManagement = () => {
                       <Badge className={`capitalize ${getUrgencyColor(request.urgency)}`}>{request.urgency}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={`capitalize ${getStatusColor(request.status)}`}>{request.status}</Badge>
+                      <Badge className={`capitalize ${getStatusColor(request.status)}`}>{request.status === 'admin_approved' ? 'Admin Approved' : request.status}</Badge>
                     </TableCell>
                     <TableCell>
                       <p className="font-medium text-slate-900">{format(new Date(request.created_at), "MMM dd, yyyy")}</p>
@@ -324,7 +325,7 @@ export const DonationRequestsManagement = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">Status</label>
-                  <Badge className={`text-base px-3 py-1 capitalize ${getStatusColor(selectedRequest.status)}`}>{selectedRequest.status}</Badge>
+                  <Badge className={`text-base px-3 py-1 capitalize ${getStatusColor(selectedRequest.status)}`}>{selectedRequest.status === 'admin_approved' ? 'Admin Approved' : selectedRequest.status}</Badge>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Calendar className="h-4 w-4" />Requested</label>
@@ -346,7 +347,8 @@ export const DonationRequestsManagement = () => {
                     <SelectTrigger className="w-[200px] bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="accepted">Accepted</SelectItem>
+                      <SelectItem value="admin_approved">Admin Approved</SelectItem>
+                      <SelectItem value="accepted">Donor Accepted</SelectItem>
                       <SelectItem value="declined">Declined</SelectItem>
                     </SelectContent>
                   </Select>

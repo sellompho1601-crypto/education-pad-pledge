@@ -346,7 +346,7 @@ export const InvestorDonations = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "completed": case "delivered": return "default";
+      case "completed": case "delivered": case "admin_approved": return "default";
       case "pending": case "processing": return "secondary";
       case "cancelled": case "failed": case "declined": return "destructive";
       default: return "outline";
@@ -614,9 +614,10 @@ export const InvestorDonations = () => {
                             </span>
                             <Badge variant={getStatusColor(request.status)} className="flex items-center gap-1">
                               {request.status === 'pending' && <Clock className="h-3 w-3" />}
+                              {request.status === 'admin_approved' && <CheckCircle className="h-3 w-3" />}
                               {request.status === 'accepted' && <CheckCircle className="h-3 w-3" />}
                               {request.status === 'declined' && <XCircle className="h-3 w-3" />}
-                              {request.status}
+                              {request.status === 'admin_approved' ? 'Admin Approved' : request.status}
                             </Badge>
                             {getUrgencyBadge(request.urgency)}
                           </div>
@@ -638,7 +639,7 @@ export const InvestorDonations = () => {
                           </div>
                         </div>
 
-                        {request.status === 'pending' && (
+                        {(request.status === 'pending' || request.status === 'admin_approved') && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -649,7 +650,7 @@ export const InvestorDonations = () => {
                             Review
                           </Button>
                         )}
-                        {request.status !== 'pending' && (
+                        {request.status !== 'pending' && request.status !== 'admin_approved' && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -871,9 +872,10 @@ export const InvestorDonations = () => {
                   <label className="text-sm font-semibold text-muted-foreground">Current Status</label>
                   <Badge variant={getStatusColor(selectedRequest.status)} className="flex items-center gap-1 w-fit">
                     {selectedRequest.status === 'pending' && <Clock className="h-3 w-3" />}
+                    {selectedRequest.status === 'admin_approved' && <CheckCircle className="h-3 w-3" />}
                     {selectedRequest.status === 'accepted' && <CheckCircle className="h-3 w-3" />}
                     {selectedRequest.status === 'declined' && <XCircle className="h-3 w-3" />}
-                    {selectedRequest.status}
+                    {selectedRequest.status === 'admin_approved' ? 'Admin Approved' : selectedRequest.status}
                   </Badge>
                 </div>
               </div>
@@ -918,7 +920,7 @@ export const InvestorDonations = () => {
               )}
 
               {/* Response Section - only for pending requests */}
-              {selectedRequest.status === 'pending' && (
+              {(selectedRequest.status === 'pending' || selectedRequest.status === 'admin_approved') && (
                 <div className="space-y-4 p-5 bg-muted/20 rounded-xl border-2 border-primary/20">
                   <h3 className="font-semibold flex items-center gap-2">
                     <Send className="h-4 w-4 text-primary" /> Your Response
