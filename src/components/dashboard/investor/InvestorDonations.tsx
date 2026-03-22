@@ -159,21 +159,21 @@ export const InvestorDonations = () => {
 
       // Fetch donation requests for this investor
       const { data: requestsData } = await supabase
-        .from('donation_requests' as any)
+        .from('donation_requests')
         .select('*')
         .eq('investor_id', investor.id)
         .order('created_at', { ascending: false });
 
       // Enrich requests with institution names
-      if (requestsData && (requestsData as any[]).length > 0) {
-        const institutionIds = [...new Set((requestsData as any[]).map((r: any) => r.institution_id))];
+      if (requestsData && requestsData.length > 0) {
+        const institutionIds = [...new Set(requestsData.map((r) => r.institution_id))];
         const { data: instData } = await supabase
           .from('institutions')
           .select('id, institution_name, city, country')
           .in('id', institutionIds);
 
         const instMap = new Map((instData || []).map(i => [i.id, i]));
-        const enrichedRequests = (requestsData as any[]).map((r: any) => {
+        const enrichedRequests = requestsData.map((r) => {
           const inst = instMap.get(r.institution_id);
           return {
             ...r,
@@ -306,8 +306,8 @@ export const InvestorDonations = () => {
     setRespondingToRequest(true);
     try {
       const { error } = await supabase
-        .from('donation_requests' as any)
-        .update({ status: action } as any)
+        .from('donation_requests')
+        .update({ status: action })
         .eq('id', selectedRequest.id);
 
       if (error) throw error;
