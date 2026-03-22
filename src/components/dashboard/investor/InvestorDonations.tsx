@@ -918,7 +918,7 @@ export const InvestorDonations = () => {
               )}
 
               {/* Response Section - only for pending requests */}
-              {selectedRequest.status === 'pending' && (
+              {(selectedRequest.status === 'pending' || selectedRequest.status === 'admin_approved') && (
                 <div className="space-y-4 p-5 bg-muted/20 rounded-xl border-2 border-primary/20">
                   <h3 className="font-semibold flex items-center gap-2">
                     <Send className="h-4 w-4 text-primary" /> Your Response
