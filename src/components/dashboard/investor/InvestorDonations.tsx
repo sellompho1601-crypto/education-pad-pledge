@@ -166,14 +166,14 @@ export const InvestorDonations = () => {
 
       // Enrich requests with institution names
       if (requestsData && requestsData.length > 0) {
-        const institutionIds = [...new Set((requestsData as any[]).map((r: any) => r.institution_id))];
+        const institutionIds = [...new Set(requestsData.map((r) => r.institution_id))];
         const { data: instData } = await supabase
           .from('institutions')
           .select('id, institution_name, city, country')
           .in('id', institutionIds);
 
         const instMap = new Map((instData || []).map(i => [i.id, i]));
-        const enrichedRequests = (requestsData as any[]).map((r: any) => {
+        const enrichedRequests = requestsData.map((r) => {
           const inst = instMap.get(r.institution_id);
           return {
             ...r,
