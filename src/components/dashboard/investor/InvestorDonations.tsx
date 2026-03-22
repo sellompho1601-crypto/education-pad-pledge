@@ -346,7 +346,7 @@ export const InvestorDonations = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "completed": case "delivered": return "default";
+      case "completed": case "delivered": case "admin_approved": return "default";
       case "pending": case "processing": return "secondary";
       case "cancelled": case "failed": case "declined": return "destructive";
       default: return "outline";
@@ -872,9 +872,10 @@ export const InvestorDonations = () => {
                   <label className="text-sm font-semibold text-muted-foreground">Current Status</label>
                   <Badge variant={getStatusColor(selectedRequest.status)} className="flex items-center gap-1 w-fit">
                     {selectedRequest.status === 'pending' && <Clock className="h-3 w-3" />}
+                    {selectedRequest.status === 'admin_approved' && <CheckCircle className="h-3 w-3" />}
                     {selectedRequest.status === 'accepted' && <CheckCircle className="h-3 w-3" />}
                     {selectedRequest.status === 'declined' && <XCircle className="h-3 w-3" />}
-                    {selectedRequest.status}
+                    {selectedRequest.status === 'admin_approved' ? 'Admin Approved' : selectedRequest.status}
                   </Badge>
                 </div>
               </div>
