@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Heart, Home, Activity, FileText, Building2, MessageSquare, BarChart3, Settings, ChevronRight, LogOut } from "lucide-react";
+import { Heart, Home, Activity, FileText, Building2, MessageSquare, BarChart3, Settings, ChevronRight, LogOut, ClipboardList } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
