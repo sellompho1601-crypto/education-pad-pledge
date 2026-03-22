@@ -269,7 +269,7 @@ export const DonationRequestsManagement = () => {
                       <Badge className={`capitalize ${getUrgencyColor(request.urgency)}`}>{request.urgency}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={`capitalize ${getStatusColor(request.status)}`}>{request.status}</Badge>
+                      <Badge className={`capitalize ${getStatusColor(request.status)}`}>{request.status === 'admin_approved' ? 'Admin Approved' : request.status}</Badge>
                     </TableCell>
                     <TableCell>
                       <p className="font-medium text-slate-900">{format(new Date(request.created_at), "MMM dd, yyyy")}</p>
@@ -325,7 +325,7 @@ export const DonationRequestsManagement = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700">Status</label>
-                  <Badge className={`text-base px-3 py-1 capitalize ${getStatusColor(selectedRequest.status)}`}>{selectedRequest.status}</Badge>
+                  <Badge className={`text-base px-3 py-1 capitalize ${getStatusColor(selectedRequest.status)}`}>{selectedRequest.status === 'admin_approved' ? 'Admin Approved' : selectedRequest.status}</Badge>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 flex items-center gap-2"><Calendar className="h-4 w-4" />Requested</label>
