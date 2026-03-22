@@ -614,9 +614,10 @@ export const InvestorDonations = () => {
                             </span>
                             <Badge variant={getStatusColor(request.status)} className="flex items-center gap-1">
                               {request.status === 'pending' && <Clock className="h-3 w-3" />}
+                              {request.status === 'admin_approved' && <CheckCircle className="h-3 w-3" />}
                               {request.status === 'accepted' && <CheckCircle className="h-3 w-3" />}
                               {request.status === 'declined' && <XCircle className="h-3 w-3" />}
-                              {request.status}
+                              {request.status === 'admin_approved' ? 'Admin Approved' : request.status}
                             </Badge>
                             {getUrgencyBadge(request.urgency)}
                           </div>
