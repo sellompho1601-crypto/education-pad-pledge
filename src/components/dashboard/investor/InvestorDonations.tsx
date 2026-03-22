@@ -306,8 +306,8 @@ export const InvestorDonations = () => {
     setRespondingToRequest(true);
     try {
       const { error } = await supabase
-        .from('donation_requests' as any)
-        .update({ status: action } as any)
+        .from('donation_requests')
+        .update({ status: action })
         .eq('id', selectedRequest.id);
 
       if (error) throw error;
