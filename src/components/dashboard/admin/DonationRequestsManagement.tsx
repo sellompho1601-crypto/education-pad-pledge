@@ -346,7 +346,8 @@ export const DonationRequestsManagement = () => {
                     <SelectTrigger className="w-[200px] bg-white"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="accepted">Accepted</SelectItem>
+                      <SelectItem value="admin_approved">Admin Approved</SelectItem>
+                      <SelectItem value="accepted">Donor Accepted</SelectItem>
                       <SelectItem value="declined">Declined</SelectItem>
                     </SelectContent>
                   </Select>

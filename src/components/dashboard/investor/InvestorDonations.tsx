@@ -638,7 +638,7 @@ export const InvestorDonations = () => {
                           </div>
                         </div>
 
-                        {request.status === 'pending' && (
+                        {(request.status === 'pending' || request.status === 'admin_approved') && (
                           <Button
                             size="sm"
                             variant="outline"
@@ -649,7 +649,7 @@ export const InvestorDonations = () => {
                             Review
                           </Button>
                         )}
-                        {request.status !== 'pending' && (
+                        {request.status !== 'pending' && request.status !== 'admin_approved' && (
                           <Button
                             size="sm"
                             variant="ghost"
